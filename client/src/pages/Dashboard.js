@@ -223,7 +223,14 @@ function Dashboard() {
         // Handle analytics response
         if (analyticsRes && analyticsRes.data && analyticsRes.data.data) {
           analyticsData = analyticsRes.data.data;
-          console.log('✅ Analytics data fetched:', analyticsData);
+          console.log('✅ Analytics data fetched:', {
+            totalSearches: analyticsData.totalSearches,
+            totalPathfindingRoutes: analyticsData.totalPathfindingRoutes,
+            recentSearchesCount: analyticsData.recentSearches?.length || 0,
+            recentRoutesCount: analyticsData.recentRoutes?.length || 0,
+            popularRoutesCount: analyticsData.popularRoutes?.length || 0,
+            popularSearchesCount: analyticsData.popularSearches?.length || 0
+          });
           
           // Set popular routes and searches
           if (analyticsData.popularRoutes) {
@@ -234,12 +241,18 @@ function Dashboard() {
           }
         } else if (analyticsRes && analyticsRes.data) {
           analyticsData = analyticsRes.data;
+          console.log('✅ Analytics data (alternative structure):', {
+            totalSearches: analyticsData.totalSearches,
+            totalPathfindingRoutes: analyticsData.totalPathfindingRoutes
+          });
           if (analyticsData.popularRoutes) {
             setPopularRoutes(analyticsData.popularRoutes);
           }
           if (analyticsData.popularSearches) {
             setPopularSearches(analyticsData.popularSearches);
           }
+        } else {
+          console.warn('⚠️ No analytics data in response:', analyticsRes);
         }
         
         console.log('✅ Data fetched:', { 
@@ -329,6 +342,14 @@ function Dashboard() {
       const anonymousPathfinding = analyticsDataSafe.totalPathfindingRoutes || 0;
       const totalSearches = userSearches + anonymousSearches;
       const totalPathfinding = userPathfinding + anonymousPathfinding;
+      
+      console.log('📊 Pathfinding tracking summary:', {
+        userPathfinding,
+        anonymousPathfinding,
+        totalPathfinding,
+        analyticsDataAvailable: !!analyticsData,
+        analyticsTotalRoutes: analyticsDataSafe.totalPathfindingRoutes
+      });
 
       setLocalTracking({
         totalSearches,
