@@ -1,22 +1,20 @@
-require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 const mongoose = require('mongoose');
 const User = require('../models/User');
 
-const MONGODB_URI = process.env.MONGODB_URI || process.env.MONGO_URI;
+// Get MongoDB URI from command line or environment
+const MONGODB_URI = process.argv[3] || process.env.MONGODB_URI || process.env.MONGO_URI;
 
 if (!MONGODB_URI) {
-  console.error('❌ Error: MONGODB_URI not found in environment variables');
+  console.error('❌ Error: MONGODB_URI not provided');
   console.error('');
-  console.error('Options:');
-  console.error('1. Create a .env file in the root directory with:');
-  console.error('   MONGODB_URI="your_connection_string"');
+  console.error('Usage:');
+  console.error('  node scripts/setSuperAdminWithUri.js <email> <mongodb_uri>');
   console.error('');
-  console.error('2. Or use the alternative script that accepts URI as parameter:');
-  console.error('   node scripts/setSuperAdminWithUri.js <email> <mongodb_uri>');
+  console.error('Or set MONGODB_URI environment variable:');
+  console.error('  MONGODB_URI="your_connection_string" node scripts/setSuperAdminWithUri.js <email>');
   console.error('');
-  console.error('To get your MongoDB URI:');
-  console.error('  - Render Dashboard → Backend Service → Environment → MONGODB_URI');
-  console.error('  - Or check your main Campus-Trails project .env file');
+  console.error('Example:');
+  console.error('  node scripts/setSuperAdminWithUri.js kenth.barbarona9@gmail.com "mongodb+srv://user:pass@cluster.mongodb.net/dbname"');
   process.exit(1);
 }
 
@@ -24,17 +22,17 @@ async function setSuperAdmin() {
   try {
     console.log('🔌 Connecting to MongoDB...');
     await mongoose.connect(MONGODB_URI);
-    console.log('✅ Connected to MongoDB');
+    console.log('✅ Connected to MongoDB\n');
 
     // Get email from command line argument
     const email = process.argv[2];
     if (!email) {
       console.error('❌ Error: Email is required');
-      console.log('Usage: node scripts/setSuperAdmin.js <email>');
+      console.log('Usage: node scripts/setSuperAdminWithUri.js <email> <mongodb_uri>');
       process.exit(1);
     }
 
-    console.log(`\n🔍 Looking for user with email: ${email}`);
+    console.log(`🔍 Looking for user with email: ${email}`);
 
     // Find user
     const user = await User.findOne({ email: email.toLowerCase() });
@@ -64,7 +62,12 @@ async function setSuperAdmin() {
 
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error:', error);
+    console.error('❌ Error:', error.message);
+    if (error.message.includes('authentication failed')) {
+      console.error('\n💡 Tip: Check your MongoDB connection string credentials');
+    } else if (error.message.includes('ENOTFOUND')) {
+      console.error('\n💡 Tip: Check your MongoDB connection string hostname');
+    }
     process.exit(1);
   } finally {
     await mongoose.disconnect();
