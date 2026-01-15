@@ -38,6 +38,26 @@ app.use('/api/admin/campuses', require('./routes/campuses'));
 app.use('/api/admin/notifications', require('./routes/notifications'));
 app.use('/api/admin/feedbacks', require('./routes/feedbacks'));
 app.use('/api/admin/developers', require('./routes/developers'));
+app.use('/api/admin/suggestions_and_feedbacks', require('./routes/suggestions_and_feedbacks'));
+
+// Handle /api/admin base route
+app.get('/api/admin', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Admin Panel API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/admin/auth',
+      pins: '/api/admin/pins',
+      users: '/api/admin/users',
+      campuses: '/api/admin/campuses',
+      notifications: '/api/admin/notifications',
+      feedbacks: '/api/admin/feedbacks',
+      developers: '/api/admin/developers',
+      suggestions_and_feedbacks: '/api/admin/suggestions_and_feedbacks'
+    }
+  });
+});
 
 // Root route
 app.get('/', (req, res) => {
