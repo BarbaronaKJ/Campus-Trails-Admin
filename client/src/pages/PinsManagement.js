@@ -53,10 +53,7 @@ function PinsManagement() {
   // Map click mode for adding new pin
   const [mapClickMode, setMapClickMode] = useState(false) // true when waiting for map click to set coordinates
   
-  // Map zoom and pan state
-  const [mapTransform, setMapTransform] = useState({ x: 0, y: 0, scale: 1 })
-  const [isPanning, setIsPanning] = useState(false)
-  const [panStart, setPanStart] = useState({ x: 0, y: 0 })
+  // Map zoom and pan are disabled
 
   useEffect(() => {
     fetchData()
@@ -671,49 +668,57 @@ function PinsManagement() {
             
             <div 
               className="map-canvas"
-              style={{ position: 'relative', overflow: 'hidden', cursor: isPanning ? 'grabbing' : 'default' }}
-              onMouseDown={(e) => {
-                if (e.button === 0 && !mapClickMode) { // Left mouse button
-                  setIsPanning(true)
-                  setPanStart({ x: e.clientX - mapTransform.x, y: e.clientY - mapTransform.y })
-                }
-              }}
-              onMouseMove={(e) => {
-                if (isPanning) {
-                  setMapTransform({
-                    ...mapTransform,
-                    x: e.clientX - panStart.x,
-                    y: e.clientY - panStart.y
-                  })
-                }
-              }}
-              onMouseUp={() => setIsPanning(false)}
-              onMouseLeave={() => setIsPanning(false)}
               onWheel={(e) => {
                 e.preventDefault()
-                const delta = e.deltaY > 0 ? 0.9 : 1.1
-                const newScale = Math.max(0.5, Math.min(3, mapTransform.scale * delta))
-                
-                // Zoom towards mouse position
-                const rect = e.currentTarget.getBoundingClientRect()
-                const mouseX = e.clientX - rect.left
-                const mouseY = e.clientY - rect.top
-                
-                const scaleChange = newScale / mapTransform.scale
-                const newX = mouseX - (mouseX - mapTransform.x) * scaleChange
-                const newY = mouseY - (mouseY - mapTransform.y) * scaleChange
-                
-                setMapTransform({ x: newX, y: newY, scale: newScale })
+                e.stopPropagation()
+                return false
+              }}
+              onMouseWheel={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                return false
+              }}
+              onTouchStart={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                return false
+              }}
+              onTouchMove={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                return false
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                return false
+              }}
+              onTouchCancel={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                return false
+              }}
+              onMouseDown={(e) => {
+                // Only prevent default if not clicking on a pin marker
+                if (e.target.tagName !== 'circle' && e.target.tagName !== 'g' && e.target.tagName !== 'foreignObject') {
+                  e.preventDefault()
+                }
+              }}
+              onDragStart={(e) => {
+                e.preventDefault()
+                e.stopPropagation()
+                return false
+              }}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                return false
               }}
               onClick={(e) => {
-                if (isPanning) return // Don't trigger click if we were panning
-                
                 const svg = e.currentTarget.querySelector('svg')
                 if (svg) {
                   const rect = svg.getBoundingClientRect()
-                  // Account for transform
-                  const relativeX = (e.clientX - rect.left - mapTransform.x) / mapTransform.scale
-                  const relativeY = (e.clientY - rect.top - mapTransform.y) / mapTransform.scale
+                  const relativeX = e.clientX - rect.left
+                  const relativeY = e.clientY - rect.top
                   
                   // Calculate pixel coordinates in viewBox space (1920x1310)
                   const pixelX = Math.round(relativeX / rect.width * 1920)
@@ -732,60 +737,6 @@ function PinsManagement() {
                 }
               }}
             >
-              {/* Zoom Controls */}
-              <div style={{ 
-                position: 'absolute', 
-                top: '10px', 
-                right: '10px', 
-                zIndex: 10,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '5px'
-              }}>
-                <button
-                  onClick={() => setMapTransform({ ...mapTransform, scale: Math.min(3, mapTransform.scale * 1.2) })}
-                  style={{ 
-                    padding: '8px 12px', 
-                    background: '#fff', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '18px'
-                  }}
-                  title="Zoom In"
-                >
-                  +
-                </button>
-                <button
-                  onClick={() => setMapTransform({ ...mapTransform, scale: Math.max(0.5, mapTransform.scale * 0.8) })}
-                  style={{ 
-                    padding: '8px 12px', 
-                    background: '#fff', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '18px'
-                  }}
-                  title="Zoom Out"
-                >
-                  −
-                </button>
-                <button
-                  onClick={() => setMapTransform({ x: 0, y: 0, scale: 1 })}
-                  style={{ 
-                    padding: '8px 12px', 
-                    background: '#fff', 
-                    border: '1px solid #ccc', 
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontSize: '12px'
-                  }}
-                  title="Reset View"
-                >
-                  Reset
-                </button>
-              </div>
-              
               <svg 
                 viewBox="0 0 1920 1310"
                 style={{ 
@@ -793,16 +744,75 @@ function PinsManagement() {
                   height: 'auto', 
                   display: 'block', 
                   maxWidth: '1200px',
-                  transform: `translate(${mapTransform.x}px, ${mapTransform.y}px) scale(${mapTransform.scale})`,
-                  transformOrigin: '0 0',
-                  transition: isPanning ? 'none' : 'transform 0.1s ease-out'
+                  touchAction: 'none',
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none',
+                  cursor: 'default',
+                  transform: 'none',
+                  WebkitTransform: 'none',
+                  MozTransform: 'none',
+                  msTransform: 'none',
+                  OTransform: 'none'
                 }}
                 preserveAspectRatio="xMidYMid meet"
+                onWheel={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onMouseWheel={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onTouchStart={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onTouchMove={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onTouchCancel={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onDragStart={(e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  return false
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  return false
+                }}
               >
                 <image
                   href="/ustp-cdo-map.png"
                   width="1920"
                   height="1310"
+                  style={{
+                    pointerEvents: 'none',
+                    touchAction: 'none',
+                    userSelect: 'none',
+                    WebkitUserSelect: 'none',
+                    MozUserSelect: 'none',
+                    msUserSelect: 'none'
+                  }}
+                  onDragStart={(e) => {
+                    e.preventDefault()
+                    return false
+                  }}
                 />
                 
                 {/* Pin Markers */}
