@@ -21,7 +21,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
       console.log(`❌ Login attempt: Non-admin user - ${email} (role: ${user.role})`);
       return res.status(403).json({ success: false, message: 'Admin access required. Please contact an administrator.' });
     }
@@ -71,7 +71,7 @@ router.get('/verify', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId).select('-password');
 
-    if (!user || user.role !== 'admin') {
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usersAPI, suggestionsAndFeedbacksAPI } from '../services/api';
 
 function FeedbacksManagement() {
@@ -6,13 +6,11 @@ function FeedbacksManagement() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
+    setError('');
     try {
       if (activeTab === 'reports') {
         // Fetch all users and extract their feedbackHistory
@@ -47,11 +45,47 @@ function FeedbacksManagement() {
         
         setFeedbacks(allFeedbacks);
       } else {
-        const res = await suggestionsAndFeedbacksAPI.getAll({ limit: 1000 });
-        setSuggestions(res.data.suggestions || []);
+        // Fetch suggestions and feedbacks
+        console.log('🔍 Fetching User App Feedback...');
+        try {
+          const res = await suggestionsAndFeedbacksAPI.getAll({ limit: 1000 });
+          console.log('✅ Suggestions API response:', res);
+          
+          // Handle different response structures
+          // API returns: { success: true, suggestions: [...], pagination: {...} }
+          // Axios wraps it in .data, so: res.data = { success: true, suggestions: [...] }
+          let suggestionsData = [];
+          if (res && res.data) {
+            if (res.data.suggestions) {
+              suggestionsData = res.data.suggestions;
+            } else if (res.data.success && res.data.suggestions) {
+              suggestionsData = res.data.suggestions;
+            } else if (Array.isArray(res.data)) {
+              suggestionsData = res.data;
+            }
+          } else if (Array.isArray(res)) {
+            suggestionsData = res;
+          }
+          
+          console.log('✅ User App Feedback fetched:', suggestionsData.length, 'items');
+          console.log('📋 Sample data:', suggestionsData.slice(0, 2));
+          setSuggestions(suggestionsData);
+        } catch (suggestionsError) {
+          console.error('❌ Error fetching User App Feedback:', suggestionsError);
+          console.error('❌ Error details:', suggestionsError.response?.data || suggestionsError.message);
+          console.error('❌ Status code:', suggestionsError.response?.status);
+          setSuggestions([]);
+          
+          // Set error message
+          if (suggestionsError.response?.status === 404) {
+            setError('Route not found. The backend needs to be redeployed with the suggestions_and_feedbacks route. Please trigger a manual deployment in Render.');
+          } else {
+            setError(`Error loading User App Feedback: ${suggestionsError.message || 'Unknown error'}. Check console for details.`);
+          }
+        }
       }
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('❌ Error fetching data:', error);
       if (activeTab === 'reports') {
         setFeedbacks([]);
       } else {
@@ -60,7 +94,11 @@ function FeedbacksManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleDeleteFeedback = async (feedbackData) => {
     if (!window.confirm('Are you sure you want to delete this feedback/report?')) {
@@ -275,7 +313,40 @@ function FeedbacksManagement() {
       {activeTab === 'suggestions' && (
         <div className="card">
           <h2 style={{ marginBottom: '20px' }}>User App Feedback</h2>
-          {suggestions.length === 0 ? (
+          
+          {/* Error Message */}
+          {error && (
+            <div style={{
+              backgroundColor: '#f8d7da',
+              color: '#721c24',
+              padding: '15px',
+              marginBottom: '20px',
+              borderRadius: '5px',
+              border: '1px solid #f5c6cb'
+            }}>
+              <strong>⚠️ Error:</strong> {error}
+              <br />
+              <button 
+                onClick={() => {
+                  setError('');
+                  fetchData();
+                }}
+                style={{
+                  marginTop: '10px',
+                  padding: '5px 15px',
+                  backgroundColor: '#007bff',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          
+          {suggestions.length === 0 && !error ? (
             <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
               No user app feedback found.
             </p>

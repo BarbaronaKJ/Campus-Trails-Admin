@@ -134,7 +134,20 @@ function Dashboard() {
           }),
           suggestionsAndFeedbacksAPI.getAll({ limit: 1000 }).catch(err => {
             console.error('❌ Error fetching suggestions:', err);
-            // Don't throw - suggestions are optional
+            console.error('❌ Error details:', {
+              message: err.message,
+              status: err.response?.status,
+              statusText: err.response?.statusText,
+              url: err.config?.url,
+              response: err.response?.data
+            });
+            
+            // If 404, log a helpful message
+            if (err.response?.status === 404) {
+              console.warn('⚠️ Route /api/admin/suggestions_and_feedbacks not found. The backend needs to be redeployed with this route.');
+            }
+            
+            // Don't throw - suggestions are optional for dashboard
             return { data: { suggestions: [] } };
           })
         ]);
@@ -196,6 +209,11 @@ function Dashboard() {
           usersResStructure: usersRes?.data ? Object.keys(usersRes.data) : 'no data',
           suggestionsResStructure: suggestionsRes?.data ? Object.keys(suggestionsRes.data) : 'no data'
         });
+        
+        // Warn if suggestions failed but don't block dashboard
+        if (suggestions.length === 0 && (!suggestionsRes || !suggestionsRes.data || !suggestionsRes.data.suggestions)) {
+          console.warn('⚠️ No suggestions data available. This may be due to a 404 error if the route is not deployed.');
+        }
       } catch (err) {
         console.error('❌ Error fetching dashboard data:', err);
         setError(`Error fetching data: ${err.message || 'Unknown error'}. Check console for details.`);

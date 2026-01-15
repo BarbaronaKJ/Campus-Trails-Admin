@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import { campusesAPI } from '../services/api';
 import './FloorPlans.css';
@@ -17,11 +17,7 @@ function FloorPlans() {
   const [addingRoom, setAddingRoom] = useState(null); // { pinId, floorIndex }
   const [editingRoom, setEditingRoom] = useState(null); // { pinId, floorIndex, roomIndex }
 
-  useEffect(() => {
-    fetchData();
-  }, [selectedCampus, searchQuery]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -75,7 +71,11 @@ function FloorPlans() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedCampus, searchQuery]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSaveNewFloor = (pinId, floorData) => {
     const pin = pins.find(p => (p._id || p.id) === pinId);
