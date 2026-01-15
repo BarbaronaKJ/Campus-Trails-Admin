@@ -21,13 +21,27 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
-    console.log(`🔍 Login attempt: ${email} - Current role: ${user.role}`);
+    console.log(`🔍 Login attempt: ${email}`);
+    console.log(`🔍 User found: ${user._id}`);
+    console.log(`🔍 Current role: ${user.role} (type: ${typeof user.role})`);
+    console.log(`🔍 Role value (JSON): ${JSON.stringify(user.role)}`);
     console.log(`🔍 Role check: admin=${user.role === 'admin'}, super_admin=${user.role === 'super_admin'}`);
+    console.log(`🔍 Role enum values: ${User.schema.path('role').enumValues}`);
+    console.log(`🔍 super_admin in enum: ${User.schema.path('role').enumValues.includes('super_admin')}`);
 
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
-      console.log(`❌ Login attempt: Non-admin user - ${email} (role: ${user.role})`);
+    // Explicit role check with string comparison
+    const userRole = String(user.role).trim();
+    const isAdmin = userRole === 'admin';
+    const isSuperAdmin = userRole === 'super_admin';
+    
+    console.log(`🔍 Normalized role check: isAdmin=${isAdmin}, isSuperAdmin=${isSuperAdmin}`);
+
+    if (!isAdmin && !isSuperAdmin) {
+      console.log(`❌ Login attempt: Non-admin user - ${email} (role: ${userRole})`);
       return res.status(403).json({ success: false, message: 'Admin access required. Please contact an administrator.' });
     }
+    
+    console.log(`✅ Role check passed for ${email} (${userRole})`);
 
     const isPasswordValid = await user.comparePassword(password);
 
@@ -74,9 +88,24 @@ router.get('/verify', async (req, res) => {
     const decoded = jwt.verify(token, JWT_SECRET);
     const user = await User.findById(decoded.userId).select('-password');
 
-    if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+    if (!user) {
+      console.log(`❌ Verify token: User not found - ${decoded.userId}`);
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
+
+    // Explicit role check with string comparison
+    const userRole = String(user.role).trim();
+    const isAdmin = userRole === 'admin';
+    const isSuperAdmin = userRole === 'super_admin';
+    
+    console.log(`🔍 Verify token: ${user.email} - role: ${userRole}, isAdmin: ${isAdmin}, isSuperAdmin: ${isSuperAdmin}`);
+
+    if (!isAdmin && !isSuperAdmin) {
+      console.log(`❌ Verify token: Non-admin user - ${user.email} (role: ${userRole})`);
+      return res.status(403).json({ success: false, message: 'Admin access required' });
+    }
+    
+    console.log(`✅ Token verified for ${user.email} (${userRole})`);
 
     res.json({
       success: true,

@@ -16,12 +16,23 @@ const authenticateToken = async (req, res, next) => {
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {
+      console.log(`❌ Auth middleware: User not found - ${decoded.userId}`);
       return res.status(401).json({ success: false, message: 'User not found' });
     }
 
-    if (user.role !== 'admin' && user.role !== 'super_admin') {
+    // Explicit role check with string comparison
+    const userRole = String(user.role).trim();
+    const isAdmin = userRole === 'admin';
+    const isSuperAdmin = userRole === 'super_admin';
+    
+    console.log(`🔍 Auth middleware: ${user.email} - role: ${userRole}, isAdmin: ${isAdmin}, isSuperAdmin: ${isSuperAdmin}`);
+
+    if (!isAdmin && !isSuperAdmin) {
+      console.log(`❌ Auth middleware: Non-admin user - ${user.email} (role: ${userRole})`);
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
+    
+    console.log(`✅ Auth middleware passed for ${user.email} (${userRole})`);
 
     req.user = user;
     next();
