@@ -434,22 +434,43 @@ function Dashboard() {
 
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header">
+      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
         <h1>Engagement Analytics</h1>
-        <div className="campus-selector">
-          <label>Active Campus Overview:</label>
-          <select 
-            value={selectedCampus} 
-            onChange={(e) => setSelectedCampus(e.target.value)}
-            className="campus-dropdown"
+        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
+          <button 
+            onClick={() => {
+              setLoading(true);
+              fetchData();
+            }}
+            disabled={loading}
+            style={{
+              padding: '8px 16px',
+              backgroundColor: loading ? '#ccc' : CAMPUS_TRAILS_BLUE,
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: 'bold'
+            }}
           >
-            <option value="all">All Campuses</option>
-            {campuses.map(campus => (
-              <option key={campus._id} value={campus._id}>
-                {campus.name}
-              </option>
-            ))}
-          </select>
+            {loading ? '⏳ Loading...' : '🔄 Refresh'}
+          </button>
+          <div className="campus-selector">
+            <label>Active Campus Overview:</label>
+            <select 
+              value={selectedCampus} 
+              onChange={(e) => setSelectedCampus(e.target.value)}
+              className="campus-dropdown"
+            >
+              <option value="all">All Campuses</option>
+              {campuses.map(campus => (
+                <option key={campus._id} value={campus._id}>
+                  {campus.name}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
