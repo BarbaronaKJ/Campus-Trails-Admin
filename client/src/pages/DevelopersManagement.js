@@ -13,10 +13,27 @@ function DevelopersManagement() {
 
   const fetchDevelopers = async () => {
     try {
+      setLoading(true);
       const res = await developersAPI.getAll();
-      setDevelopers(res.data.developers);
+      console.log('Developers API response:', res);
+      
+      // Handle different response structures
+      let developersList = [];
+      if (res.data && res.data.developers) {
+        developersList = res.data.developers;
+      } else if (res.data && Array.isArray(res.data)) {
+        developersList = res.data;
+      } else if (res.data && res.data.data && Array.isArray(res.data.data)) {
+        developersList = res.data.data;
+      } else if (Array.isArray(res.data)) {
+        developersList = res.data;
+      }
+      
+      console.log('Developers list:', developersList);
+      setDevelopers(developersList);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Error fetching developers:', error);
+      setDevelopers([]);
     } finally {
       setLoading(false);
     }
