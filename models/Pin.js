@@ -16,23 +16,9 @@ const pinSchema = new mongoose.Schema({
   title: { type: String, required: true, trim: true },
   description: { type: String, trim: true, default: null },
   category: { 
-    type: String, 
-    trim: true, 
-    default: 'Other', 
-    index: true,
-    enum: [
-      'Commercial Zone',
-      'Admin/Operation Zone',
-      'Academic Core Zone',
-      'Auxillary Services Zone',
-      'Dining',
-      'Comfort Rooms',
-      'Research Zones',
-      'Clinic',
-      'Parking',
-      'Security',
-      'Other'
-    ]
+    type: [String], 
+    default: ['Other'], 
+    index: true
   },
   isVisible: { type: Boolean, required: true, default: true, index: true },
   pinType: {

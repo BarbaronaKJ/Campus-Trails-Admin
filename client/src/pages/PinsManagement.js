@@ -23,7 +23,7 @@ function PinsManagement() {
   const [newPinData, setNewPinData] = useState({
     title: '',
     description: '',
-    category: 'Other',
+    category: ['Other'],
     campusId: '',
     x: 0,
     y: 0,
@@ -55,8 +55,8 @@ function PinsManagement() {
   
   // Map zoom and pan are disabled
   
-  // Available categories (predefined + custom from database)
-  const [availableCategories, setAvailableCategories] = useState([
+  // Available categories
+  const availableCategories = [
     'Commercial Zone',
     'Admin/Operation Zone',
     'Academic Core Zone',
@@ -68,42 +68,11 @@ function PinsManagement() {
     'Parking',
     'Security',
     'Other'
-  ])
+  ]
 
   useEffect(() => {
     fetchData()
   }, [])
-  
-  // Extract unique categories from pins
-  useEffect(() => {
-    if (pins.length > 0) {
-      const predefinedCategories = [
-        'Commercial Zone',
-        'Admin/Operation Zone',
-        'Academic Core Zone',
-        'Auxillary Services Zone',
-        'Dining',
-        'Comfort Rooms',
-        'Research Zones',
-        'Clinic',
-        'Parking',
-        'Security',
-        'Other'
-      ]
-      
-      // Get all unique categories from pins
-      const categoriesFromPins = new Set()
-      pins.forEach(pin => {
-        if (pin.category && pin.category.trim()) {
-          categoriesFromPins.add(pin.category.trim())
-        }
-      })
-      
-      // Combine predefined and custom categories, remove duplicates, and sort
-      const allCategories = [...new Set([...predefinedCategories, ...Array.from(categoriesFromPins)])].sort()
-      setAvailableCategories(allCategories)
-    }
-  }, [pins])
   
   // Initialize pending neighbors when modal opens
   useEffect(() => {
@@ -200,7 +169,9 @@ function PinsManagement() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       const title = (pin.title || '').toLowerCase()
-      const category = (pin.category || '').toLowerCase()
+      // Handle both array and string categories for backward compatibility
+      const pinCategories = Array.isArray(pin.category) ? pin.category : (pin.category ? [pin.category] : [])
+      const category = pinCategories.join(' ').toLowerCase()
       const id = String(pin._id || pin.id).toLowerCase()
       if (!title.includes(query) && !category.includes(query) && !id.includes(query)) {
         return false
@@ -220,7 +191,9 @@ function PinsManagement() {
     if (pinSelectionSearch) {
       const query = pinSelectionSearch.toLowerCase()
       const title = (pin.title || '').toLowerCase()
-      const category = (pin.category || '').toLowerCase()
+      // Handle both array and string categories for backward compatibility
+      const pinCategories = Array.isArray(pin.category) ? pin.category : (pin.category ? [pin.category] : [])
+      const category = pinCategories.join(' ').toLowerCase()
       const id = String(pin._id || pin.id).toLowerCase()
       if (!title.includes(query) && !category.includes(query) && !id.includes(query)) {
         return false
@@ -257,6 +230,10 @@ function PinsManagement() {
       setError('Please select a campus')
       return
     }
+    if (!Array.isArray(newPinData.category) || newPinData.category.length === 0) {
+      setError('Please select at least one category')
+      return
+    }
 
     try {
       const response = await pinsAPI.create(newPinData)
@@ -267,7 +244,7 @@ function PinsManagement() {
         setNewPinData({
           title: '',
           description: '',
-          category: 'Other',
+          category: ['Other'],
           campusId: '',
           x: 0,
           y: 0,
@@ -549,7 +526,11 @@ function PinsManagement() {
                         {pin.isVisible === false ? '🔍 Waypoint' : '👁️ Visible'}
                       </span>
                     </td>
-                    <td>{pin.category || 'N/A'}</td>
+                    <td>
+                      {Array.isArray(pin.category) 
+                        ? pin.category.join(', ') 
+                        : (pin.category || 'N/A')}
+                    </td>
                     <td className="coordinates">
                       ({pin.x?.toFixed(2)}, {pin.y?.toFixed(2)})
                     </td>
@@ -570,7 +551,14 @@ function PinsManagement() {
                         <button 
                           className="button button-secondary button-small"
                           onClick={() => {
-                            setEditPinData(pin)
+                            // Convert category to array for backward compatibility
+                            const pinWithArrayCategory = {
+                              ...pin,
+                              category: Array.isArray(pin.category) 
+                                ? pin.category 
+                                : (pin.category ? [pin.category] : ['Other'])
+                            }
+                            setEditPinData(pinWithArrayCategory)
                             setShowEditPinForm(true)
                           }}
                           title="Edit Pin"
@@ -991,53 +979,51 @@ function PinsManagement() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="label">Category *</label>
-                  <select
-                    className="input"
-                    value={availableCategories.includes(newPinData.category) ? newPinData.category : ''}
-                    onChange={(e) => {
-                      if (e.target.value === '__custom__') {
-                        // User wants to enter custom category
-                        const customCategory = window.prompt('Enter custom category name:')
-                        if (customCategory && customCategory.trim()) {
-                          setNewPinData({...newPinData, category: customCategory.trim()})
-                          // Add to available categories if not already there
-                          if (!availableCategories.includes(customCategory.trim())) {
-                            setAvailableCategories([...availableCategories, customCategory.trim()].sort())
-                          }
-                        }
-                      } else {
-                        setNewPinData({...newPinData, category: e.target.value})
-                      }
-                    }}
-                    required
-                  >
-                    <option value="">Select or enter custom category...</option>
-                    {availableCategories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                    <option value="__custom__">+ Add New Category...</option>
-                  </select>
-                  {newPinData.category && !availableCategories.includes(newPinData.category) && (
-                    <div style={{ marginTop: '5px', padding: '8px', background: '#e7f3ff', borderRadius: '4px', fontSize: '12px' }}>
-                      <strong>Custom Category:</strong> {newPinData.category}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm(`Add "${newPinData.category}" to the category list?`)) {
-                            if (!availableCategories.includes(newPinData.category)) {
-                              setAvailableCategories([...availableCategories, newPinData.category].sort())
-                            }
-                          }
-                        }}
-                        style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-                      >
-                        Add to List
-                      </button>
-                    </div>
+                  <label className="label">Categories * (Select multiple)</label>
+                  <div style={{ 
+                    border: '1px solid #ddd', 
+                    borderRadius: '4px', 
+                    padding: '10px', 
+                    maxHeight: '200px', 
+                    overflowY: 'auto',
+                    background: '#fff'
+                  }}>
+                    {availableCategories.map(category => {
+                      const isSelected = Array.isArray(newPinData.category) 
+                        ? newPinData.category.includes(category)
+                        : newPinData.category === category
+                      return (
+                        <label key={category} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const currentCategories = Array.isArray(newPinData.category) 
+                                ? [...newPinData.category] 
+                                : (newPinData.category ? [newPinData.category] : [])
+                              
+                              if (e.target.checked) {
+                                if (!currentCategories.includes(category)) {
+                                  setNewPinData({...newPinData, category: [...currentCategories, category]})
+                                }
+                              } else {
+                                setNewPinData({...newPinData, category: currentCategories.filter(c => c !== category)})
+                              }
+                            }}
+                            style={{ marginRight: '8px', cursor: 'pointer' }}
+                          />
+                          <span>{category}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {Array.isArray(newPinData.category) && newPinData.category.length === 0 && (
+                    <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
+                      ⚠️ Please select at least one category.
+                    </small>
                   )}
                   <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-                    💡 Tip: Select an existing category or choose "+ Add New Category..." to create a custom one.
+                    💡 Tip: You can select multiple categories for each pin.
                   </small>
                 </div>
 
@@ -1149,7 +1135,20 @@ function PinsManagement() {
             </div>
             <form onSubmit={(e) => {
               e.preventDefault()
-              handleUpdatePin(editPinData._id || editPinData.id, editPinData)
+              // Validate categories
+              const categoriesToSave = Array.isArray(editPinData.category) 
+                ? editPinData.category 
+                : (editPinData.category ? [editPinData.category] : ['Other'])
+              
+              if (categoriesToSave.length === 0) {
+                setError('Please select at least one category')
+                return
+              }
+              
+              handleUpdatePin(editPinData._id || editPinData.id, {
+                ...editPinData,
+                category: categoriesToSave
+              })
               setShowEditPinForm(false)
             }}>
               <div className="form-group">
@@ -1192,57 +1191,54 @@ function PinsManagement() {
 
               <div className="form-row">
                 <div className="form-group">
-                  <label className="label">Category *</label>
-                  <select
-                    className="input"
-                    value={availableCategories.includes(editPinData.category) ? editPinData.category : (editPinData.category || '')}
-                    onChange={(e) => {
-                      if (e.target.value === '__custom__') {
-                        // User wants to enter custom category
-                        const customCategory = window.prompt('Enter custom category name:')
-                        if (customCategory && customCategory.trim()) {
-                          setEditPinData({...editPinData, category: customCategory.trim()})
-                          // Add to available categories if not already there
-                          if (!availableCategories.includes(customCategory.trim())) {
-                            setAvailableCategories([...availableCategories, customCategory.trim()].sort())
-                          }
-                        }
-                      } else {
-                        setEditPinData({...editPinData, category: e.target.value})
-                      }
-                    }}
-                    required
-                  >
-                    <option value="">Select or enter custom category...</option>
-                    {/* Show current category if it's not in the available list */}
-                    {editPinData.category && !availableCategories.includes(editPinData.category) && (
-                      <option value={editPinData.category}>{editPinData.category} (Custom)</option>
-                    )}
-                    {availableCategories.map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                    <option value="__custom__">+ Add New Category...</option>
-                  </select>
-                  {editPinData.category && !availableCategories.includes(editPinData.category) && (
-                    <div style={{ marginTop: '5px', padding: '8px', background: '#e7f3ff', borderRadius: '4px', fontSize: '12px' }}>
-                      <strong>Custom Category:</strong> {editPinData.category}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (window.confirm(`Add "${editPinData.category}" to the category list?`)) {
-                            if (!availableCategories.includes(editPinData.category)) {
-                              setAvailableCategories([...availableCategories, editPinData.category].sort())
-                            }
-                          }
-                        }}
-                        style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
-                      >
-                        Add to List
-                      </button>
-                    </div>
+                  <label className="label">Categories * (Select multiple)</label>
+                  <div style={{ 
+                    border: '1px solid #ddd', 
+                    borderRadius: '4px', 
+                    padding: '10px', 
+                    maxHeight: '200px', 
+                    overflowY: 'auto',
+                    background: '#fff'
+                  }}>
+                    {availableCategories.map(category => {
+                      // Handle backward compatibility: convert string to array
+                      const currentCategories = Array.isArray(editPinData.category) 
+                        ? editPinData.category 
+                        : (editPinData.category ? [editPinData.category] : [])
+                      const isSelected = currentCategories.includes(category)
+                      
+                      return (
+                        <label key={category} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => {
+                              const currentCats = Array.isArray(editPinData.category) 
+                                ? [...editPinData.category] 
+                                : (editPinData.category ? [editPinData.category] : [])
+                              
+                              if (e.target.checked) {
+                                if (!currentCats.includes(category)) {
+                                  setEditPinData({...editPinData, category: [...currentCats, category]})
+                                }
+                              } else {
+                                setEditPinData({...editPinData, category: currentCats.filter(c => c !== category)})
+                              }
+                            }}
+                            style={{ marginRight: '8px', cursor: 'pointer' }}
+                          />
+                          <span>{category}</span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {Array.isArray(editPinData.category) && editPinData.category.length === 0 && (
+                    <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
+                      ⚠️ Please select at least one category.
+                    </small>
                   )}
                   <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-                    💡 Tip: Select an existing category or choose "+ Add New Category..." to create a custom one.
+                    💡 Tip: You can select multiple categories for each pin.
                   </small>
                 </div>
 
