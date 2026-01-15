@@ -82,7 +82,7 @@ function QRCodeManager() {
     try {
       // Use qrcode library to generate data URL
       const QRCode = await import('qrcode');
-      const dataUrl = await QRCode.toDataURL(qrCodeValue, { width: 300, margin: 2 });
+      const dataUrl = await QRCode.default.toDataURL(qrCodeValue, { width: 300, margin: 2 });
       const link = document.createElement('a');
       link.download = `qr-code-${(pin.title || pin.id || 'pin').toString().replace(/[^a-z0-9]/gi, '_')}-${Date.now()}.png`;
       link.href = dataUrl;
@@ -204,13 +204,14 @@ function QRCodeManager() {
 // QR Code Display Component using canvas
 const QRCodeDisplay = ({ value, pinId }) => {
   const canvasRef = useRef(null);
+  const [qrError, setQrError] = useState(false);
 
   useEffect(() => {
     const generateQR = async () => {
       try {
         const QRCode = await import('qrcode');
         if (canvasRef.current) {
-          await QRCode.toCanvas(canvasRef.current, value, {
+          await QRCode.default.toCanvas(canvasRef.current, value, {
             width: 150,
             margin: 2,
             color: {
@@ -218,13 +219,35 @@ const QRCodeDisplay = ({ value, pinId }) => {
               light: '#FFFFFF'
             }
           });
+          setQrError(false);
         }
       } catch (error) {
         console.error('Error generating QR code:', error);
+        setQrError(true);
       }
     };
-    generateQR();
+    if (value) {
+      generateQR();
+    }
   }, [value]);
+
+  if (qrError) {
+    return (
+      <div style={{ 
+        padding: '10px', 
+        backgroundColor: '#f5f5f5', 
+        borderRadius: '8px',
+        display: 'inline-block',
+        width: '150px',
+        height: '150px',
+        textAlign: 'center',
+        lineHeight: '130px',
+        color: '#999'
+      }}>
+        QR Error
+      </div>
+    );
+  }
 
   return (
     <div style={{ 
