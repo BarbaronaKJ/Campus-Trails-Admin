@@ -230,13 +230,14 @@ router.put('/change-password', async (req, res) => {
 });
 
 /**
- * Forgot Password - Request password reset
+ * Forgot Password - Get secret question for password reset
  * POST /api/admin/auth/forgot-password
- * Request Body: { email, useOTP: true/false (optional, default: false) }
+ * Request Body: { email }
+ * Returns: { success, secretQuestion } (if user exists, is admin, and has secret question)
  */
 router.post('/forgot-password', async (req, res) => {
   try {
-    const { email, useOTP } = req.body;
+    const { email } = req.body;
 
     // Validation
     if (!email) {
@@ -249,77 +250,26 @@ router.post('/forgot-password', async (req, res) => {
     // Find user by email
     const user = await User.findByEmail(email.toLowerCase());
     
-    // Always return success message (security best practice - don't reveal if email exists)
-    // But only send email if user exists and is admin/super_admin
+    // Check if user exists, is admin/super_admin, and has secret question
     if (user) {
-      // Check if user is admin or super_admin
       const userRole = String(user.role).trim();
       const isAdmin = userRole === 'admin';
       const isSuperAdmin = userRole === 'super_admin';
       
-      if (!isAdmin && !isSuperAdmin) {
-        // Return success even if not admin (security best practice)
+      if ((isAdmin || isSuperAdmin) && user.secretQuestion) {
         return res.json({
           success: true,
-          message: 'If an admin account with that email exists, a password reset email has been sent.',
+          secretQuestion: user.secretQuestion,
+          message: 'Please answer your secret question to reset your password',
         });
       }
-
-      try {
-        // Generate reset token or OTP
-        let resetToken;
-        let resetUrl;
-        
-        if (useOTP === true) {
-          // Generate 6-digit OTP
-          const otpCode = user.generatePasswordResetOTP();
-          await user.save();
-          
-          // Send OTP via email
-          const { sendPasswordResetOTP } = require('../utils/emailService');
-          await sendPasswordResetOTP(user.email, otpCode);
-          
-          return res.json({
-            success: true,
-            message: 'Password reset code has been sent to your email',
-            // In development, return OTP for testing (remove in production)
-            ...(process.env.NODE_ENV === 'development' && { otpCode }),
-          });
-        } else {
-          // Generate reset token
-          resetToken = user.generatePasswordResetToken();
-          await user.save();
-          
-          // Build reset URL (pointing to admin panel)
-          const baseUrl = process.env.ADMIN_PANEL_URL || process.env.RESET_PASSWORD_URL || 'http://localhost:3000';
-          resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
-          
-          // Send reset link via email
-          const { sendPasswordResetEmail } = require('../utils/emailService');
-          await sendPasswordResetEmail(user.email, resetToken, resetUrl);
-          
-          return res.json({
-            success: true,
-            message: 'Password reset email has been sent',
-            // In development, return reset URL for testing (remove in production)
-            ...(process.env.NODE_ENV === 'development' && { resetUrl, resetToken }),
-          });
-        }
-      } catch (emailError) {
-        console.error('❌ Error sending password reset email:', emailError);
-        // Still return success to user (don't reveal email sending failure)
-        return res.json({
-          success: true,
-          message: 'If an admin account with that email exists, a password reset email has been sent.',
-        });
-      }
-    } else {
-      // User not found - return success anyway (security best practice)
-      return res.json({
-        success: true,
-        message: 'If an admin account with that email exists, a password reset email has been sent.',
-      });
     }
+    
+    // Security: Don't reveal if email exists or if user is admin
+    return res.json({
+      success: false,
+      message: 'Unable to reset password. Please contact support if you need assistance.',
+    });
   } catch (error) {
     console.error('Forgot password error:', error);
     res.status(500).json({
@@ -331,26 +281,19 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 /**
- * Reset Password - Reset password using token or OTP
+ * Reset Password - Reset password using secret answer
  * POST /api/admin/auth/reset-password
- * Request Body: { token (or otpCode), newPassword }
+ * Request Body: { email, secretAnswer, newPassword }
  */
 router.post('/reset-password', async (req, res) => {
   try {
-    const { token, otpCode, newPassword } = req.body;
+    const { email, secretAnswer, newPassword } = req.body;
 
     // Validation
-    if (!newPassword) {
+    if (!email || !secretAnswer || !newPassword) {
       return res.status(400).json({
         success: false,
-        message: 'New password is required',
-      });
-    }
-
-    if (!token && !otpCode) {
-      return res.status(400).json({
-        success: false,
-        message: 'Reset token or OTP code is required',
+        message: 'Email, secret answer, and new password are required',
       });
     }
 
@@ -373,22 +316,40 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Find user by reset token
-    const resetValue = token || otpCode;
-    const user = await User.findByResetToken(resetValue);
+    // Find user by email
+    const user = await User.findByEmail(email.toLowerCase());
 
     if (!user) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid or expired reset token/OTP',
+        message: 'Invalid email or secret answer',
+      });
+    }
+
+    // Check if user is admin or super_admin
+    const userRole = String(user.role).trim();
+    const isAdmin = userRole === 'admin';
+    const isSuperAdmin = userRole === 'super_admin';
+    
+    if (!isAdmin && !isSuperAdmin) {
+      return res.status(403).json({
+        success: false,
+        message: 'Admin access required',
+      });
+    }
+
+    // Verify secret answer
+    const isAnswerCorrect = await user.verifySecretAnswer(secretAnswer);
+    
+    if (!isAnswerCorrect) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid secret answer',
       });
     }
 
     // Update password (will be hashed by pre-save hook)
     user.password = newPassword;
-    // Clear reset token fields
-    user.resetPasswordToken = undefined;
-    user.resetPasswordExpires = undefined;
     await user.save();
 
     console.log(`✅ Password reset successful for ${user.email}`);

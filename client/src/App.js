@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import PinsManagement from './pages/PinsManagement';
 import UsersManagement from './pages/UsersManagement';
@@ -32,7 +31,6 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/reset-password" element={<ResetPassword />} />
       <Route
         path="/"
         element={

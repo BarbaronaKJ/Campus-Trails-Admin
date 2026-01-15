@@ -53,13 +53,26 @@ const userSchema = new mongoose.Schema({
     feedbackHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
     lastActiveDate: { type: Date, default: Date.now }
   },
-  // Password reset fields
-  resetPasswordToken: {
+  // Secret question for password recovery
+  secretQuestion: {
     type: String,
+    enum: [
+      'What is the name of your first pet?',
+      'What city were you born in?',
+      'What is your mother\'s maiden name?',
+      'What was the name of your elementary school?',
+      'What is your favorite food?',
+      'What is the name of your best friend?',
+      'What is your favorite movie?',
+      'What is your favorite book?',
+      'What is your favorite color?',
+      'What is your favorite sport?'
+    ],
     default: null
   },
-  resetPasswordExpires: {
-    type: Date,
+  secretAnswer: {
+    type: String,
+    trim: true,
     default: null
   },
   createdAt: { type: Date, default: Date.now },
@@ -89,58 +102,13 @@ userSchema.statics.findByEmail = async function(email) {
   return await this.findOne({ email: email.toLowerCase() });
 };
 
-// Method to generate password reset token
-userSchema.methods.generatePasswordResetToken = function() {
-  const crypto = require('crypto');
-  // Generate a random token
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  
-  // Hash the token and store it in the database
-  this.resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(resetToken)
-    .digest('hex');
-  
-  // Set expiration time (1 hour from now)
-  this.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-  
-  // Return the unhashed token (to send via email)
-  return resetToken;
-};
-
-// Method to generate 6-digit OTP code
-userSchema.methods.generatePasswordResetOTP = function() {
-  const crypto = require('crypto');
-  // Generate a 6-digit OTP
-  const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-  
-  // Hash the OTP and store it in the database
-  this.resetPasswordToken = crypto
-    .createHash('sha256')
-    .update(otpCode)
-    .digest('hex');
-  
-  // Set expiration time (1 hour from now)
-  this.resetPasswordExpires = Date.now() + 60 * 60 * 1000; // 1 hour
-  
-  // Return the unhashed OTP (to send via email)
-  return otpCode;
-};
-
-// Static method to find user by reset token
-userSchema.statics.findByResetToken = async function(token) {
-  const crypto = require('crypto');
-  // Hash the provided token to compare with stored hash
-  const hashedToken = crypto
-    .createHash('sha256')
-    .update(token)
-    .digest('hex');
-  
-  // Find user with matching token that hasn't expired
-  return await this.findOne({
-    resetPasswordToken: hashedToken,
-    resetPasswordExpires: { $gt: Date.now() } // Token must not be expired
-  });
+// Method to verify secret answer (case-insensitive)
+userSchema.methods.verifySecretAnswer = async function(answer) {
+  if (!this.secretAnswer || !answer) {
+    return false;
+  }
+  // Compare case-insensitively
+  return this.secretAnswer.toLowerCase().trim() === answer.toLowerCase().trim();
 };
 
 module.exports = mongoose.model('User', userSchema);

@@ -11,6 +11,10 @@ function Login() {
   const [loading, setLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordEmail, setForgotPasswordEmail] = useState('');
+  const [forgotSecretQuestion, setForgotSecretQuestion] = useState('');
+  const [forgotSecretAnswer, setForgotSecretAnswer] = useState('');
+  const [forgotNewPassword, setForgotNewPassword] = useState('');
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('');
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState({ type: '', text: '' });
   const { login } = useAuth();
@@ -35,30 +39,91 @@ function Login() {
     }
   };
 
-  const handleForgotPassword = async (e) => {
+  const handleGetSecretQuestion = async (e) => {
     e.preventDefault();
     setForgotPasswordMessage({ type: '', text: '' });
     setForgotPasswordLoading(true);
 
     try {
-      const response = await authAPI.forgotPassword(forgotPasswordEmail, false);
-      if (response.data.success) {
+      const response = await authAPI.forgotPassword(forgotPasswordEmail);
+      if (response.data.success && response.data.secretQuestion) {
+        setForgotSecretQuestion(response.data.secretQuestion);
+        setForgotPasswordMessage({ type: '', text: '' });
+      } else {
         setForgotPasswordMessage({ 
-          type: 'success', 
-          text: response.data.message || 'Password reset email has been sent. Please check your inbox.' 
+          type: 'error', 
+          text: response.data.message || 'Unable to reset password. Please contact support.' 
         });
-        setForgotPasswordEmail('');
-        // Hide form after 3 seconds
-        setTimeout(() => {
-          setShowForgotPassword(false);
-          setForgotPasswordMessage({ type: '', text: '' });
-        }, 3000);
       }
     } catch (err) {
       console.error('Forgot password error:', err);
       setForgotPasswordMessage({ 
         type: 'error', 
-        text: err.response?.data?.message || 'Failed to send password reset email. Please try again.' 
+        text: err.response?.data?.message || 'Failed to get secret question. Please try again.' 
+      });
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setForgotPasswordMessage({ type: '', text: '' });
+    setForgotPasswordLoading(true);
+
+    if (!forgotSecretAnswer || !forgotNewPassword || !forgotConfirmPassword) {
+      setForgotPasswordMessage({ type: 'error', text: 'Please fill in all fields' });
+      setForgotPasswordLoading(false);
+      return;
+    }
+
+    if (forgotNewPassword.length < 6) {
+      setForgotPasswordMessage({ type: 'error', text: 'Password must be at least 6 characters' });
+      setForgotPasswordLoading(false);
+      return;
+    }
+
+    const hasCapital = /[A-Z]/.test(forgotNewPassword);
+    const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(forgotNewPassword);
+    
+    if (!hasCapital || !hasSymbol) {
+      setForgotPasswordMessage({ type: 'error', text: 'Password must contain at least one capital letter and one symbol' });
+      setForgotPasswordLoading(false);
+      return;
+    }
+
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setForgotPasswordMessage({ type: 'error', text: 'Passwords do not match' });
+      setForgotPasswordLoading(false);
+      return;
+    }
+
+    try {
+      const response = await authAPI.resetPassword({
+        email: forgotPasswordEmail,
+        secretAnswer: forgotSecretAnswer,
+        newPassword: forgotNewPassword
+      });
+      if (response.data.success) {
+        setForgotPasswordMessage({ 
+          type: 'success', 
+          text: 'Password has been reset successfully! You can now login with your new password.' 
+        });
+        setTimeout(() => {
+          setShowForgotPassword(false);
+          setForgotPasswordEmail('');
+          setForgotSecretQuestion('');
+          setForgotSecretAnswer('');
+          setForgotNewPassword('');
+          setForgotConfirmPassword('');
+          setForgotPasswordMessage({ type: '', text: '' });
+        }, 3000);
+      }
+    } catch (err) {
+      console.error('Reset password error:', err);
+      setForgotPasswordMessage({ 
+        type: 'error', 
+        text: err.response?.data?.message || 'Failed to reset password. Please check your secret answer.' 
       });
     } finally {
       setForgotPasswordLoading(false);
@@ -124,28 +189,97 @@ function Login() {
                 {forgotPasswordMessage.text}
               </div>
             )}
-            <form onSubmit={handleForgotPassword}>
-              <div className="form-group">
-                <label>Email</label>
-                <input
-                  type="email"
-                  value={forgotPasswordEmail}
-                  onChange={(e) => setForgotPasswordEmail(e.target.value)}
-                  placeholder="Enter your admin email"
-                  required
-                  disabled={forgotPasswordLoading}
-                />
-              </div>
-              <button type="submit" className="btn btn-primary" disabled={forgotPasswordLoading}>
-                {forgotPasswordLoading ? 'Sending...' : 'Send Reset Link'}
-              </button>
-            </form>
+            {!forgotSecretQuestion ? (
+              <form onSubmit={handleGetSecretQuestion}>
+                <div className="form-group">
+                  <label>Email</label>
+                  <input
+                    type="email"
+                    value={forgotPasswordEmail}
+                    onChange={(e) => setForgotPasswordEmail(e.target.value)}
+                    placeholder="Enter your admin email"
+                    required
+                    disabled={forgotPasswordLoading}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" disabled={forgotPasswordLoading}>
+                  {forgotPasswordLoading ? 'Loading...' : 'Get Secret Question'}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleResetPassword}>
+                <div className="form-group">
+                  <label>Secret Question</label>
+                  <p style={{ color: '#666', fontSize: '14px', fontStyle: 'italic', marginBottom: '10px' }}>
+                    {forgotSecretQuestion}
+                  </p>
+                </div>
+                <div className="form-group">
+                  <label>Secret Answer</label>
+                  <input
+                    type="text"
+                    value={forgotSecretAnswer}
+                    onChange={(e) => setForgotSecretAnswer(e.target.value)}
+                    placeholder="Enter your secret answer"
+                    required
+                    disabled={forgotPasswordLoading}
+                  />
+                </div>
+                <div className="form-group">
+                  <label>New Password</label>
+                  <input
+                    type="password"
+                    value={forgotNewPassword}
+                    onChange={(e) => setForgotNewPassword(e.target.value)}
+                    placeholder="At least 6 characters, 1 capital, 1 symbol"
+                    required
+                    disabled={forgotPasswordLoading}
+                    minLength={6}
+                  />
+                  <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
+                    Must contain at least one capital letter and one symbol
+                  </small>
+                </div>
+                <div className="form-group">
+                  <label>Confirm New Password</label>
+                  <input
+                    type="password"
+                    value={forgotConfirmPassword}
+                    onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                    placeholder="Re-enter your new password"
+                    required
+                    disabled={forgotPasswordLoading}
+                  />
+                </div>
+                <button type="submit" className="btn btn-primary" disabled={forgotPasswordLoading}>
+                  {forgotPasswordLoading ? 'Resetting...' : 'Reset Password'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotSecretQuestion('');
+                    setForgotSecretAnswer('');
+                    setForgotNewPassword('');
+                    setForgotConfirmPassword('');
+                    setForgotPasswordMessage({ type: '', text: '' });
+                  }}
+                  className="btn btn-secondary"
+                  style={{ marginTop: '10px', width: '100%' }}
+                >
+                  Back
+                </button>
+              </form>
+            )}
             <div style={{ marginTop: '15px', textAlign: 'center' }}>
               <button
                 type="button"
                 onClick={() => {
                   setShowForgotPassword(false);
                   setForgotPasswordEmail('');
+                  setForgotSecretQuestion('');
+                  setForgotSecretAnswer('');
+                  setForgotNewPassword('');
+                  setForgotConfirmPassword('');
                   setForgotPasswordMessage({ type: '', text: '' });
                 }}
                 style={{
