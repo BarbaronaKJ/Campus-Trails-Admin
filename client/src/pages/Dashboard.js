@@ -322,8 +322,10 @@ function Dashboard() {
       });
 
       // Combine user-specific and anonymous analytics
-      const anonymousSearches = analyticsData?.totalSearches || 0;
-      const anonymousPathfinding = analyticsData?.totalPathfindingRoutes || 0;
+      // Ensure analyticsData exists before accessing properties
+      const analyticsDataSafe = analyticsData || {};
+      const anonymousSearches = analyticsDataSafe.totalSearches || 0;
+      const anonymousPathfinding = analyticsDataSafe.totalPathfindingRoutes || 0;
       const totalSearches = userSearches + anonymousSearches;
       const totalPathfinding = userPathfinding + anonymousPathfinding;
 
@@ -390,8 +392,10 @@ function Dashboard() {
 
         // Count searches for this day from analytics
         let daySearches = 0;
-        if (analyticsData?.recentSearches && Array.isArray(analyticsData.recentSearches)) {
-          daySearches = analyticsData.recentSearches.filter(s => {
+        const recentSearches = analyticsDataSafe.recentSearches;
+        if (recentSearches && Array.isArray(recentSearches)) {
+          daySearches = recentSearches.filter(s => {
+            if (!s || !s.timestamp) return false;
             const searchDate = new Date(s.timestamp);
             return searchDate >= dayStart && searchDate <= dayEnd;
           }).length;
@@ -399,8 +403,10 @@ function Dashboard() {
 
         // Count pathfinding routes for this day from analytics
         let dayPathfinding = 0;
-        if (analyticsData?.recentRoutes && Array.isArray(analyticsData.recentRoutes)) {
-          dayPathfinding = analyticsData.recentRoutes.filter(r => {
+        const recentRoutes = analyticsDataSafe.recentRoutes;
+        if (recentRoutes && Array.isArray(recentRoutes)) {
+          dayPathfinding = recentRoutes.filter(r => {
+            if (!r || !r.timestamp) return false;
             const routeDate = new Date(r.timestamp);
             return routeDate >= dayStart && routeDate <= dayEnd;
           }).length;
@@ -408,8 +414,8 @@ function Dashboard() {
 
         usageTrendsData.push({
           date: dateStr,
-          'Searches': daySearches,
-          'Pathfinding Routes': dayPathfinding
+          Searches: daySearches,
+          PathfindingRoutes: dayPathfinding
         });
       }
 
@@ -646,11 +652,12 @@ function Dashboard() {
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="Pathfinding Routes" 
+                    dataKey="PathfindingRoutes" 
                     stroke={CAMPUS_TRAILS_GREEN} 
                     fillOpacity={1}
                     fill="url(#colorPathfinding)"
                     strokeWidth={2}
+                    name="Pathfinding Routes"
                   />
                 </AreaChart>
               </ResponsiveContainer>
