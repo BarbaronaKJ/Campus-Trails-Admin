@@ -45,6 +45,14 @@ function Dashboard() {
   useEffect(() => {
     fetchData();
     checkSystemHealth();
+    
+    // Auto-refresh every 30 seconds to show updated values
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing dashboard data...');
+      fetchData();
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(refreshInterval);
     // Refresh system health every 30 seconds
     const healthInterval = setInterval(checkSystemHealth, 30000);
     return () => clearInterval(healthInterval);
