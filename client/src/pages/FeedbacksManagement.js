@@ -12,48 +12,68 @@ function FeedbacksManagement() {
     setLoading(true);
     setError('');
     try {
-      if (activeTab === 'reports') {
-        // Fetch all users and extract their feedbackHistory
-        const res = await usersAPI.getAll({ limit: 10000 });
-        const users = res.data.users || [];
-        
-        // Flatten all feedbackHistory entries from all users
-        const allFeedbacks = [];
-        users.forEach(user => {
-          if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
-            user.activity.feedbackHistory.forEach(feedback => {
-              allFeedbacks.push({
-                ...feedback,
-                userId: {
-                  _id: user._id,
-                  email: user.email,
-                  username: user.username,
-                  displayName: user.displayName
-                },
-                _id: feedback._id || feedback.id // Use feedback's _id or id as unique identifier
-              });
-            });
-          }
-        });
-        
-        // Sort by date (newest first)
-        allFeedbacks.sort((a, b) => {
-          const dateA = new Date(a.date || a.createdAt || 0);
-          const dateB = new Date(b.date || b.createdAt || 0);
-          return dateB - dateA;
-        });
-        
-        setFeedbacks(allFeedbacks);
-      } else {
-        // Fetch suggestions and feedbacks
-        console.log('🔍 Fetching User App Feedback...');
+      // Fetch both Facility Reports and User App Feedback simultaneously
+      console.log('🔄 Fetching both Facility Reports and User App Feedback...');
+      
+      const [usersRes, suggestionsRes] = await Promise.allSettled([
+        // Fetch all users and extract their feedbackHistory (Facility Reports)
+        usersAPI.getAll({ limit: 10000 }),
+        // Fetch suggestions and feedbacks (User App Feedback)
+        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 }).catch(err => {
+          console.error('❌ Error fetching User App Feedback:', err);
+          return { data: null, error: err };
+        })
+      ]);
+      
+      // Process Facility Reports
+      if (usersRes.status === 'fulfilled') {
         try {
-          const res = await suggestionsAndFeedbacksAPI.getAll({ limit: 1000 });
+          const users = usersRes.value.data.users || [];
+          
+          // Flatten all feedbackHistory entries from all users
+          const allFeedbacks = [];
+          users.forEach(user => {
+            if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
+              user.activity.feedbackHistory.forEach(feedback => {
+                allFeedbacks.push({
+                  ...feedback,
+                  userId: {
+                    _id: user._id,
+                    email: user.email,
+                    username: user.username,
+                    displayName: user.displayName
+                  },
+                  _id: feedback._id || feedback.id // Use feedback's _id or id as unique identifier
+                });
+              });
+            }
+          });
+          
+          // Sort by date (newest first)
+          allFeedbacks.sort((a, b) => {
+            const dateA = new Date(a.date || a.createdAt || 0);
+            const dateB = new Date(b.date || b.createdAt || 0);
+            return dateB - dateA;
+          });
+          
+          setFeedbacks(allFeedbacks);
+          console.log('✅ Facility Reports fetched:', allFeedbacks.length, 'items');
+        } catch (error) {
+          console.error('❌ Error processing Facility Reports:', error);
+          setFeedbacks([]);
+        }
+      } else {
+        console.error('❌ Error fetching Facility Reports:', usersRes.reason);
+        setFeedbacks([]);
+      }
+      
+      // Process User App Feedback
+      if (suggestionsRes.status === 'fulfilled' && suggestionsRes.value && suggestionsRes.value.data) {
+        try {
+          const res = suggestionsRes.value;
           console.log('✅ Suggestions API response:', res);
           
           // Handle different response structures
-          // API returns: { success: true, suggestions: [...], pagination: {...} }
-          // Axios wraps it in .data, so: res.data = { success: true, suggestions: [...] }
           let suggestionsData = [];
           if (res && res.data) {
             if (res.data.suggestions) {
@@ -70,31 +90,34 @@ function FeedbacksManagement() {
           console.log('✅ User App Feedback fetched:', suggestionsData.length, 'items');
           console.log('📋 Sample data:', suggestionsData.slice(0, 2));
           setSuggestions(suggestionsData);
-        } catch (suggestionsError) {
-          console.error('❌ Error fetching User App Feedback:', suggestionsError);
-          console.error('❌ Error details:', suggestionsError.response?.data || suggestionsError.message);
-          console.error('❌ Status code:', suggestionsError.response?.status);
+          setError(''); // Clear any previous errors
+        } catch (error) {
+          console.error('❌ Error processing User App Feedback:', error);
           setSuggestions([]);
-          
-          // Set error message
-          if (suggestionsError.response?.status === 404) {
-            setError('Route not found. The backend needs to be redeployed with the suggestions_and_feedbacks route. Please trigger a manual deployment in Render.');
-          } else {
-            setError(`Error loading User App Feedback: ${suggestionsError.message || 'Unknown error'}. Check console for details.`);
-          }
+        }
+      } else {
+        // Handle error case
+        const suggestionsError = suggestionsRes.status === 'rejected' ? suggestionsRes.reason : (suggestionsRes.value?.error);
+        console.error('❌ Error fetching User App Feedback:', suggestionsError);
+        console.error('❌ Error details:', suggestionsError?.response?.data || suggestionsError?.message);
+        console.error('❌ Status code:', suggestionsError?.response?.status);
+        setSuggestions([]);
+        
+        // Set error message
+        if (suggestionsError?.response?.status === 404) {
+          setError('Route not found. The backend needs to be redeployed with the suggestions_and_feedbacks route. Please trigger a manual deployment in Render.');
+        } else {
+          setError(`Error loading User App Feedback: ${suggestionsError?.message || 'Unknown error'}. Check console for details.`);
         }
       }
     } catch (error) {
       console.error('❌ Error fetching data:', error);
-      if (activeTab === 'reports') {
-        setFeedbacks([]);
-      } else {
-        setSuggestions([]);
-      }
+      setFeedbacks([]);
+      setSuggestions([]);
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, []); // Remove activeTab dependency - fetch both always
 
   useEffect(() => {
     fetchData();
