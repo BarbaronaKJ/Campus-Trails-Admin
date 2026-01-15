@@ -345,7 +345,7 @@ function Dashboard() {
       const trendsData = [];
       
       for (let i = 6; i >= 0; i--) {
-        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const date = new Date(nowForTrends.getTime() - i * 24 * 60 * 60 * 1000);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
         // Create day boundaries
@@ -377,10 +377,10 @@ function Dashboard() {
 
       // Build usage trends data for charts (last 7 days)
       const usageTrendsData = [];
-      const now = new Date();
+      const nowForTrends = new Date();
       
       for (let i = 6; i >= 0; i--) {
-        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const date = new Date(nowForTrends.getTime() - i * 24 * 60 * 60 * 1000);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         const dayStart = new Date(date);
         dayStart.setHours(0, 0, 0, 0);
