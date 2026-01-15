@@ -30,6 +30,7 @@ function Dashboard() {
   });
   const [popularRoutes, setPopularRoutes] = useState([]);
   const [popularSearches, setPopularSearches] = useState([]);
+  const [usageTrends, setUsageTrends] = useState([]); // For charts
   const [systemHealth, setSystemHealth] = useState({
     mongodb: 'checking',
     express: 'checking'
