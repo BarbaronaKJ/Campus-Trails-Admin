@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI, analyticsAPI } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import './Dashboard.css';
@@ -494,13 +494,15 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Usage Analytics */}
+      {/* Usage Analytics with Charts */}
       <div className="dashboard-section">
         <h2>Usage Analytics</h2>
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+        
+        {/* Summary Cards */}
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: '20px' }}>
           <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_BLUE}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Searches</h3>
-            <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalSearches}</p>
+            <p className="stat-number" style={{ fontSize: '28px', fontWeight: 'bold' }}>{localTracking.totalSearches}</p>
             <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
               {localTracking.userSearches > 0 && (
                 <span>Users: {localTracking.userSearches} • </span>
@@ -517,7 +519,7 @@ function Dashboard() {
           </div>
           <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Pathfinding Routes</h3>
-            <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalPathfinding}</p>
+            <p className="stat-number" style={{ fontSize: '28px', fontWeight: 'bold' }}>{localTracking.totalPathfinding}</p>
             <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
               {localTracking.userPathfinding > 0 && (
                 <span>Users: {localTracking.userPathfinding} • </span>
@@ -532,6 +534,60 @@ function Dashboard() {
               </p>
             )}
           </div>
+        </div>
+
+        {/* Usage Trends Chart */}
+        {usageTrends.length > 0 && (
+          <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
+            <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>Usage Trends (Last 7 Days)</h3>
+            <div style={{ height: '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={usageTrends}>
+                  <defs>
+                    <linearGradient id="colorSearches" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CAMPUS_TRAILS_BLUE} stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor={CAMPUS_TRAILS_BLUE} stopOpacity={0}/>
+                    </linearGradient>
+                    <linearGradient id="colorPathfinding" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={CAMPUS_TRAILS_GREEN} stopOpacity={0.8}/>
+                      <stop offset="95%" stopColor={CAMPUS_TRAILS_GREEN} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis 
+                    dataKey="date" 
+                    style={{ fontSize: '12px' }}
+                  />
+                  <YAxis 
+                    style={{ fontSize: '12px' }}
+                  />
+                  <Tooltip 
+                    contentStyle={{ fontSize: '12px', backgroundColor: '#fff', border: '1px solid #ccc' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ fontSize: '12px' }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="Searches" 
+                    stroke={CAMPUS_TRAILS_BLUE} 
+                    fillOpacity={1}
+                    fill="url(#colorSearches)"
+                    strokeWidth={2}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="Pathfinding Routes" 
+                    stroke={CAMPUS_TRAILS_GREEN} 
+                    fillOpacity={1}
+                    fill="url(#colorPathfinding)"
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
           <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Saved Pins</h3>
             <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalSavedPins}</p>
