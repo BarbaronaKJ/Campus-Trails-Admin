@@ -39,6 +39,7 @@ const feedbacksRoutes = require('./routes/feedbacks');
 const suggestionsAndFeedbacksRoutes = require('./routes/suggestions_and_feedbacks');
 const notificationsRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
+const developersRoutes = require('./routes/developers');
 
 app.use('/api/admin/auth', authRoutes);
 app.use('/api/admin/pins', pinsRoutes);
@@ -47,6 +48,7 @@ app.use('/api/admin/campuses', campusesRoutes);
 app.use('/api/admin/feedbacks', feedbacksRoutes);
 app.use('/api/admin/suggestions_and_feedbacks', suggestionsAndFeedbacksRoutes);
 app.use('/api/admin/notifications', notificationsRoutes);
+app.use('/api/admin/developers', developersRoutes);
 // Analytics routes (no /admin prefix - used by mobile app and admin panel)
 app.use('/api/analytics', analyticsRoutes);
 

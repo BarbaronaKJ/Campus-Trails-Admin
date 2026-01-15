@@ -41,15 +41,26 @@ function DevelopersManagement() {
 
   const handleSave = async () => {
     try {
+      let response;
       if (formData._id) {
-        await developersAPI.update(formData._id, formData);
+        response = await developersAPI.update(formData._id, formData);
       } else {
-        await developersAPI.create(formData);
+        response = await developersAPI.create(formData);
       }
-      setShowModal(false);
-      fetchDevelopers();
+      
+      console.log('Developer save response:', response);
+      
+      if (response && response.data && response.data.success) {
+        setShowModal(false);
+        setFormData({ name: '', email: '', photo: '', role: 'Developer', order: 0 });
+        fetchDevelopers();
+      } else {
+        throw new Error(response?.data?.message || 'Failed to save developer');
+      }
     } catch (error) {
-      alert('Error saving developer');
+      console.error('Error saving developer:', error);
+      const errorMessage = error.response?.data?.message || error.message || 'Error saving developer';
+      alert(errorMessage);
     }
   };
 
