@@ -11,7 +11,7 @@ function QRCodeManager() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCampus]);
+  }, [selectedCampus, searchQuery]);
 
   const fetchData = async () => {
     try {
