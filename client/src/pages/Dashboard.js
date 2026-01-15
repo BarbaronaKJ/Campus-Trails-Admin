@@ -139,33 +139,46 @@ function Dashboard() {
           })
         ]);
 
-        // Handle different response structures for pins (same as PinsManagement)
-        if (pinsRes.success && pinsRes.pins) {
+        // Handle pins response (direct fetch, returns JSON directly)
+        // API returns: { success: true, pins: [...], pagination: {...} }
+        if (pinsRes && pinsRes.success && pinsRes.pins) {
           pins = pinsRes.pins;
-        } else if (pinsRes.data) {
-          pins = Array.isArray(pinsRes.data) ? pinsRes.data : [];
+        } else if (pinsRes && pinsRes.pins) {
+          pins = pinsRes.pins;
+        } else if (pinsRes && pinsRes.data && Array.isArray(pinsRes.data)) {
+          pins = pinsRes.data;
         } else if (Array.isArray(pinsRes)) {
           pins = pinsRes;
         } else {
           pins = [];
         }
 
-        // Handle users response (same as UsersManagement)
-        if (usersRes.data?.users) {
-          users = usersRes.data.users;
-        } else if (usersRes.data && Array.isArray(usersRes.data)) {
-          users = usersRes.data;
+        // Handle users response (axios wraps in .data)
+        // API returns: { success: true, users: [...], pagination: {...} }
+        // Axios wraps: usersRes.data = { success: true, users: [...] }
+        if (usersRes && usersRes.data) {
+          if (usersRes.data.users) {
+            users = usersRes.data.users;
+          } else if (usersRes.data.success && usersRes.data.users) {
+            users = usersRes.data.users;
+          } else if (Array.isArray(usersRes.data)) {
+            users = usersRes.data;
+          }
         } else if (Array.isArray(usersRes)) {
           users = usersRes;
         } else {
           users = [];
         }
 
-        // Handle suggestions response
-        if (suggestionsRes.data?.suggestions) {
-          suggestions = suggestionsRes.data.suggestions;
-        } else if (suggestionsRes.data && Array.isArray(suggestionsRes.data)) {
-          suggestions = suggestionsRes.data;
+        // Handle suggestions response (same as FeedbacksManagement)
+        // API returns: { success: true, suggestions: [...], pagination: {...} }
+        // Axios wraps it in .data, so: suggestionsRes.data = { success: true, suggestions: [...] }
+        if (suggestionsRes && suggestionsRes.data) {
+          if (suggestionsRes.data.suggestions) {
+            suggestions = suggestionsRes.data.suggestions;
+          } else if (Array.isArray(suggestionsRes.data)) {
+            suggestions = suggestionsRes.data;
+          }
         } else if (Array.isArray(suggestionsRes)) {
           suggestions = suggestionsRes;
         } else {
@@ -177,7 +190,11 @@ function Dashboard() {
           users: users.length, 
           suggestions: suggestions.length,
           pinsSample: pins.slice(0, 2),
-          usersSample: users.slice(0, 2)
+          usersSample: users.slice(0, 2),
+          suggestionsSample: suggestions.slice(0, 2),
+          pinsResStructure: Object.keys(pinsRes || {}),
+          usersResStructure: usersRes?.data ? Object.keys(usersRes.data) : 'no data',
+          suggestionsResStructure: suggestionsRes?.data ? Object.keys(suggestionsRes.data) : 'no data'
         });
       } catch (err) {
         console.error('❌ Error fetching dashboard data:', err);
