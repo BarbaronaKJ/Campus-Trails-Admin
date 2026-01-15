@@ -446,22 +446,32 @@ function Dashboard() {
       setFeedbackTrends(trendsData);
 
       // Build usage trends data for charts (last 7 days)
+      // Combine both anonymous analytics data AND user-specific data
       const usageTrendsData = [];
       const nowForTrends = new Date();
       
-      // Check if we have analytics data
-      const hasAnalyticsData = analyticsDataSafe && (
+      // Check if we have analytics data with timestamps
+      const hasAnalyticsTimestamps = analyticsDataSafe && (
         (analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches) && analyticsDataSafe.recentSearches.length > 0) ||
         (analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes) && analyticsDataSafe.recentRoutes.length > 0)
       );
       
       console.log('📊 Building usage trends:', {
-        hasAnalyticsData,
+        hasAnalyticsTimestamps,
         recentSearchesCount: analyticsDataSafe.recentSearches?.length || 0,
         recentRoutesCount: analyticsDataSafe.recentRoutes?.length || 0,
         userSearches,
-        userPathfinding
+        userPathfinding,
+        anonymousSearches,
+        anonymousPathfinding
       });
+      
+      // Calculate how to distribute user-specific data across 7 days
+      // We'll distribute it evenly, but weight it more towards recent days
+      const userSearchesPerDay = userSearches > 0 ? Math.floor(userSearches / 7) : 0;
+      const userSearchesRemainder = userSearches > 0 ? userSearches % 7 : 0;
+      const userPathfindingPerDay = userPathfinding > 0 ? Math.floor(userPathfinding / 7) : 0;
+      const userPathfindingRemainder = userPathfinding > 0 ? userPathfinding % 7 : 0;
       
       for (let i = 6; i >= 0; i--) {
         const date = new Date(nowForTrends.getTime() - i * 24 * 60 * 60 * 1000);
@@ -471,45 +481,45 @@ function Dashboard() {
         const dayEnd = new Date(date);
         dayEnd.setHours(23, 59, 59, 999);
 
-        // Count searches for this day from analytics
-        let daySearches = 0;
-        if (hasAnalyticsData && analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches)) {
-          daySearches = analyticsDataSafe.recentSearches.filter(s => {
+        // Count searches for this day from analytics (anonymous)
+        let dayAnonymousSearches = 0;
+        if (hasAnalyticsTimestamps && analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches)) {
+          dayAnonymousSearches = analyticsDataSafe.recentSearches.filter(s => {
             if (!s || !s.timestamp) return false;
             const searchDate = new Date(s.timestamp);
             return searchDate >= dayStart && searchDate <= dayEnd;
           }).length;
         }
         
-        // Fallback: Distribute user searches across last 7 days if analytics not available
-        if (!hasAnalyticsData && userSearches > 0) {
-          // Simple distribution: divide total searches by 7 days
-          daySearches = Math.floor(userSearches / 7);
-          // Add remainder to today
-          if (i === 0) {
-            daySearches += userSearches % 7;
-          }
+        // Add user-specific searches (distributed across 7 days)
+        let dayUserSearches = userSearchesPerDay;
+        // Add remainder to most recent days (prioritize recent activity)
+        if (i < userSearchesRemainder) {
+          dayUserSearches += 1;
         }
+        
+        // Total searches for this day = anonymous + user-specific
+        const daySearches = dayAnonymousSearches + dayUserSearches;
 
-        // Count pathfinding routes for this day from analytics
-        let dayPathfinding = 0;
-        if (hasAnalyticsData && analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
-          dayPathfinding = analyticsDataSafe.recentRoutes.filter(r => {
+        // Count pathfinding routes for this day from analytics (anonymous)
+        let dayAnonymousPathfinding = 0;
+        if (hasAnalyticsTimestamps && analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
+          dayAnonymousPathfinding = analyticsDataSafe.recentRoutes.filter(r => {
             if (!r || !r.timestamp) return false;
             const routeDate = new Date(r.timestamp);
             return routeDate >= dayStart && routeDate <= dayEnd;
           }).length;
         }
         
-        // Fallback: Distribute user pathfinding across last 7 days if analytics not available
-        if (!hasAnalyticsData && userPathfinding > 0) {
-          // Simple distribution: divide total pathfinding by 7 days
-          dayPathfinding = Math.floor(userPathfinding / 7);
-          // Add remainder to today
-          if (i === 0) {
-            dayPathfinding += userPathfinding % 7;
-          }
+        // Add user-specific pathfinding (distributed across 7 days)
+        let dayUserPathfinding = userPathfindingPerDay;
+        // Add remainder to most recent days (prioritize recent activity)
+        if (i < userPathfindingRemainder) {
+          dayUserPathfinding += 1;
         }
+        
+        // Total pathfinding for this day = anonymous + user-specific
+        const dayPathfinding = dayAnonymousPathfinding + dayUserPathfinding;
 
         usageTrendsData.push({
           date: dateStr,
@@ -518,7 +528,18 @@ function Dashboard() {
         });
       }
       
-      console.log('✅ Usage trends data built:', usageTrendsData);
+      console.log('✅ Usage trends data built (combined anonymous + user-specific):', {
+        totalDays: usageTrendsData.length,
+        totalSearches: usageTrendsData.reduce((sum, d) => sum + d.Searches, 0),
+        totalPathfinding: usageTrendsData.reduce((sum, d) => sum + d.PathfindingRoutes, 0),
+        breakdown: {
+          userSearches,
+          anonymousSearches,
+          userPathfinding,
+          anonymousPathfinding
+        },
+        data: usageTrendsData
+      });
       setUsageTrends(usageTrendsData);
     } catch (error) {
       console.error('❌ Error processing dashboard data:', error);
