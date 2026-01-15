@@ -54,10 +54,56 @@ function PinsManagement() {
   const [mapClickMode, setMapClickMode] = useState(false) // true when waiting for map click to set coordinates
   
   // Map zoom and pan are disabled
+  
+  // Available categories (predefined + custom from database)
+  const [availableCategories, setAvailableCategories] = useState([
+    'Commercial Zone',
+    'Admin/Operation Zone',
+    'Academic Core Zone',
+    'Auxillary Services Zone',
+    'Dining',
+    'Comfort Rooms',
+    'Research Zones',
+    'Clinic',
+    'Parking',
+    'Security',
+    'Other'
+  ])
 
   useEffect(() => {
     fetchData()
   }, [])
+  
+  // Extract unique categories from pins
+  useEffect(() => {
+    if (pins.length > 0) {
+      const predefinedCategories = [
+        'Commercial Zone',
+        'Admin/Operation Zone',
+        'Academic Core Zone',
+        'Auxillary Services Zone',
+        'Dining',
+        'Comfort Rooms',
+        'Research Zones',
+        'Clinic',
+        'Parking',
+        'Security',
+        'Other'
+      ]
+      
+      // Get all unique categories from pins
+      const categoriesFromPins = new Set()
+      pins.forEach(pin => {
+        if (pin.category && pin.category.trim()) {
+          categoriesFromPins.add(pin.category.trim())
+        }
+      })
+      
+      // Combine predefined and custom categories, remove duplicates, and sort
+      const allCategories = [...new Set([...predefinedCategories, ...Array.from(categoriesFromPins)])].sort()
+      setAvailableCategories(allCategories)
+    }
+  }, [pins])
   
   // Initialize pending neighbors when modal opens
   useEffect(() => {
@@ -948,22 +994,51 @@ function PinsManagement() {
                   <label className="label">Category *</label>
                   <select
                     className="input"
-                    value={newPinData.category}
-                    onChange={(e) => setNewPinData({...newPinData, category: e.target.value})}
+                    value={availableCategories.includes(newPinData.category) ? newPinData.category : ''}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        // User wants to enter custom category
+                        const customCategory = prompt('Enter custom category name:')
+                        if (customCategory && customCategory.trim()) {
+                          setNewPinData({...newPinData, category: customCategory.trim()})
+                          // Add to available categories if not already there
+                          if (!availableCategories.includes(customCategory.trim())) {
+                            setAvailableCategories([...availableCategories, customCategory.trim()].sort())
+                          }
+                        }
+                      } else {
+                        setNewPinData({...newPinData, category: e.target.value})
+                      }
+                    }}
                     required
                   >
-                    <option value="Commercial Zone">Commercial Zone</option>
-                    <option value="Admin/Operation Zone">Admin/Operation Zone</option>
-                    <option value="Academic Core Zone">Academic Core Zone</option>
-                    <option value="Auxillary Services Zone">Auxillary Services Zone</option>
-                    <option value="Dining">Dining</option>
-                    <option value="Comfort Rooms">Comfort Rooms</option>
-                    <option value="Research Zones">Research Zones</option>
-                    <option value="Clinic">Clinic</option>
-                    <option value="Parking">Parking</option>
-                    <option value="Security">Security</option>
-                    <option value="Other">Other</option>
+                    <option value="">Select or enter custom category...</option>
+                    {availableCategories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                    <option value="__custom__">+ Add New Category...</option>
                   </select>
+                  {newPinData.category && !availableCategories.includes(newPinData.category) && (
+                    <div style={{ marginTop: '5px', padding: '8px', background: '#e7f3ff', borderRadius: '4px', fontSize: '12px' }}>
+                      <strong>Custom Category:</strong> {newPinData.category}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Add "${newPinData.category}" to the category list?`)) {
+                            if (!availableCategories.includes(newPinData.category)) {
+                              setAvailableCategories([...availableCategories, newPinData.category].sort())
+                            }
+                          }
+                        }}
+                        style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                      >
+                        Add to List
+                      </button>
+                    </div>
+                  )}
+                  <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
+                    💡 Tip: Select an existing category or choose "+ Add New Category..." to create a custom one.
+                  </small>
                 </div>
 
                 <div className="form-group">
@@ -1120,31 +1195,55 @@ function PinsManagement() {
                   <label className="label">Category *</label>
                   <select
                     className="input"
-                    value={editPinData.category || 'Other'}
-                    onChange={(e) => setEditPinData({...editPinData, category: e.target.value})}
+                    value={availableCategories.includes(editPinData.category) ? editPinData.category : (editPinData.category || '')}
+                    onChange={(e) => {
+                      if (e.target.value === '__custom__') {
+                        // User wants to enter custom category
+                        const customCategory = prompt('Enter custom category name:')
+                        if (customCategory && customCategory.trim()) {
+                          setEditPinData({...editPinData, category: customCategory.trim()})
+                          // Add to available categories if not already there
+                          if (!availableCategories.includes(customCategory.trim())) {
+                            setAvailableCategories([...availableCategories, customCategory.trim()].sort())
+                          }
+                        }
+                      } else {
+                        setEditPinData({...editPinData, category: e.target.value})
+                      }
+                    }}
                     required
                   >
-                    {/* Handle old category values by showing them if they don't match new categories */}
-                    {editPinData.category && !['Commercial Zone', 'Admin/Operation Zone', 'Academic Core Zone', 'Auxillary Services Zone', 'Dining', 'Comfort Rooms', 'Research Zones', 'Clinic', 'Parking', 'Security', 'Other'].includes(editPinData.category) && (
-                      <option value={editPinData.category}>(Old: {editPinData.category})</option>
+                    <option value="">Select or enter custom category...</option>
+                    {/* Show current category if it's not in the available list */}
+                    {editPinData.category && !availableCategories.includes(editPinData.category) && (
+                      <option value={editPinData.category}>{editPinData.category} (Custom)</option>
                     )}
-                    <option value="Commercial Zone">Commercial Zone</option>
-                    <option value="Admin/Operation Zone">Admin/Operation Zone</option>
-                    <option value="Academic Core Zone">Academic Core Zone</option>
-                    <option value="Auxillary Services Zone">Auxillary Services Zone</option>
-                    <option value="Dining">Dining</option>
-                    <option value="Comfort Rooms">Comfort Rooms</option>
-                    <option value="Research Zones">Research Zones</option>
-                    <option value="Clinic">Clinic</option>
-                    <option value="Parking">Parking</option>
-                    <option value="Security">Security</option>
-                    <option value="Other">Other</option>
+                    {availableCategories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                    <option value="__custom__">+ Add New Category...</option>
                   </select>
-                  {editPinData.category && !['Commercial Zone', 'Admin/Operation Zone', 'Academic Core Zone', 'Auxillary Services Zone', 'Dining', 'Comfort Rooms', 'Research Zones', 'Clinic', 'Parking', 'Security', 'Other'].includes(editPinData.category) && (
-                    <small style={{ color: '#ff9800', display: 'block', marginTop: '5px' }}>
-                      ⚠️ This pin has an old category. Please select a new standardized category.
-                    </small>
+                  {editPinData.category && !availableCategories.includes(editPinData.category) && (
+                    <div style={{ marginTop: '5px', padding: '8px', background: '#e7f3ff', borderRadius: '4px', fontSize: '12px' }}>
+                      <strong>Custom Category:</strong> {editPinData.category}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (confirm(`Add "${editPinData.category}" to the category list?`)) {
+                            if (!availableCategories.includes(editPinData.category)) {
+                              setAvailableCategories([...availableCategories, editPinData.category].sort())
+                            }
+                          }
+                        }}
+                        style={{ marginLeft: '10px', padding: '2px 8px', fontSize: '11px', background: '#28a745', color: 'white', border: 'none', borderRadius: '3px', cursor: 'pointer' }}
+                      >
+                        Add to List
+                      </button>
+                    </div>
                   )}
+                  <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
+                    💡 Tip: Select an existing category or choose "+ Add New Category..." to create a custom one.
+                  </small>
                 </div>
 
                 <div className="form-group">
