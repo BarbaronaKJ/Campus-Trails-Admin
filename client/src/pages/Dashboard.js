@@ -350,15 +350,30 @@ function Dashboard() {
         anonymousSearches = analyticsDataSafe.recentSearchesCount;
       }
       
+      // Use totalPathfindingRoutes (all-time total) for anonymous pathfinding count
+      // This represents all pathfinding routes ever tracked anonymously
       if (analyticsDataSafe.totalPathfindingRoutes !== undefined) {
         anonymousPathfinding = analyticsDataSafe.totalPathfindingRoutes;
       } else if (analyticsDataSafe.recentRoutesCount !== undefined) {
-        // Fallback to recent count if total not available
+        // Fallback to recent count if total not available (for last 30 days)
         anonymousPathfinding = analyticsDataSafe.recentRoutesCount;
       } else if (analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
         // Count from recent routes array if available
         anonymousPathfinding = analyticsDataSafe.recentRoutes.length;
       }
+      
+      // Log detailed pathfinding data for debugging
+      console.log('🔍 Pathfinding data breakdown:', {
+        analyticsDataSafe: {
+          totalPathfindingRoutes: analyticsDataSafe.totalPathfindingRoutes,
+          recentRoutesCount: analyticsDataSafe.recentRoutesCount,
+          recentRoutesLength: analyticsDataSafe.recentRoutes?.length,
+          hasRecentRoutes: !!analyticsDataSafe.recentRoutes
+        },
+        calculatedAnonymousPathfinding: anonymousPathfinding,
+        userPathfinding,
+        willBeTotal: userPathfinding + anonymousPathfinding
+      });
       const totalSearches = userSearches + anonymousSearches;
       const totalPathfinding = userPathfinding + anonymousPathfinding;
       
