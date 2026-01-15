@@ -31,14 +31,21 @@ app.get('/health', (req, res) => {
 });
 
 // API Routes (before static file serving)
-app.use('/api/admin/auth', require('./routes/auth'));
-app.use('/api/admin/pins', require('./routes/pins'));
-app.use('/api/admin/users', require('./routes/users'));
-app.use('/api/admin/campuses', require('./routes/campuses'));
-app.use('/api/admin/notifications', require('./routes/notifications'));
-app.use('/api/admin/feedbacks', require('./routes/feedbacks'));
-app.use('/api/admin/developers', require('./routes/developers'));
-app.use('/api/admin/suggestions_and_feedbacks', require('./routes/suggestions_and_feedbacks'));
+const authRoutes = require('./routes/auth');
+const pinsRoutes = require('./routes/pins');
+const usersRoutes = require('./routes/users');
+const campusesRoutes = require('./routes/campuses');
+const feedbacksRoutes = require('./routes/feedbacks');
+const suggestionsAndFeedbacksRoutes = require('./routes/suggestions_and_feedbacks');
+const notificationsRoutes = require('./routes/notifications');
+
+app.use('/api/admin/auth', authRoutes);
+app.use('/api/admin/pins', pinsRoutes);
+app.use('/api/admin/users', usersRoutes);
+app.use('/api/admin/campuses', campusesRoutes);
+app.use('/api/admin/feedbacks', feedbacksRoutes);
+app.use('/api/admin/suggestions_and_feedbacks', suggestionsAndFeedbacksRoutes);
+app.use('/api/admin/notifications', notificationsRoutes);
 
 // Handle /api/admin base route
 app.get('/api/admin', (req, res) => {
