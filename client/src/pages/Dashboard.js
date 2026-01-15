@@ -94,16 +94,23 @@ function Dashboard() {
       let campusesData = [];
       try {
         const campusesRes = await campusesAPI.getAll();
-        campusesData = campusesRes.data?.campuses || campusesRes.data || [];
+        // Handle different response structures
+        if (campusesRes.data?.campuses) {
+          campusesData = campusesRes.data.campuses;
+        } else if (campusesRes.data && Array.isArray(campusesRes.data)) {
+          campusesData = campusesRes.data;
+        } else if (Array.isArray(campusesRes)) {
+          campusesData = campusesRes;
+        }
         setCampuses(campusesData);
-        console.log('✅ Campuses fetched:', campusesData.length);
+        console.log('✅ Campuses fetched:', campusesData.length, campusesData);
       } catch (err) {
         console.error('❌ Error fetching campuses:', err);
         setError(`Error fetching campuses: ${err.message || 'Unknown error'}`);
       }
 
-      // Build query params
-      const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
+      // Build query params - don't filter by campus for dashboard stats
+      // const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
 
       // Fetch all data
       let pins = [];
@@ -112,7 +119,7 @@ function Dashboard() {
       
       try {
         const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
-          fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
+          fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }).then(async r => {
             if (!r.ok) {
@@ -132,11 +139,46 @@ function Dashboard() {
           })
         ]);
 
-        pins = pinsRes.pins || pinsRes.data || [];
-        users = usersRes.data?.users || usersRes.data || [];
-        suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
+        // Handle different response structures for pins (same as PinsManagement)
+        if (pinsRes.success && pinsRes.pins) {
+          pins = pinsRes.pins;
+        } else if (pinsRes.data) {
+          pins = Array.isArray(pinsRes.data) ? pinsRes.data : [];
+        } else if (Array.isArray(pinsRes)) {
+          pins = pinsRes;
+        } else {
+          pins = [];
+        }
+
+        // Handle users response (same as UsersManagement)
+        if (usersRes.data?.users) {
+          users = usersRes.data.users;
+        } else if (usersRes.data && Array.isArray(usersRes.data)) {
+          users = usersRes.data;
+        } else if (Array.isArray(usersRes)) {
+          users = usersRes;
+        } else {
+          users = [];
+        }
+
+        // Handle suggestions response
+        if (suggestionsRes.data?.suggestions) {
+          suggestions = suggestionsRes.data.suggestions;
+        } else if (suggestionsRes.data && Array.isArray(suggestionsRes.data)) {
+          suggestions = suggestionsRes.data;
+        } else if (Array.isArray(suggestionsRes)) {
+          suggestions = suggestionsRes;
+        } else {
+          suggestions = [];
+        }
         
-        console.log('✅ Data fetched:', { pins: pins.length, users: users.length, suggestions: suggestions.length });
+        console.log('✅ Data fetched:', { 
+          pins: pins.length, 
+          users: users.length, 
+          suggestions: suggestions.length,
+          pinsSample: pins.slice(0, 2),
+          usersSample: users.slice(0, 2)
+        });
       } catch (err) {
         console.error('❌ Error fetching dashboard data:', err);
         setError(`Error fetching data: ${err.message || 'Unknown error'}. Check console for details.`);
