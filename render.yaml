@@ -1,4 +1,5 @@
 services:
+  # Backend API Service
   - type: web
     name: campus-trails-admin-api
     env: node
@@ -12,6 +13,27 @@ services:
       - key: JWT_SECRET
         sync: false  # Set this in Render dashboard
       - key: CORS_ORIGINS
-        sync: false  # Set this in Render dashboard after Vercel deployment
+        sync: false  # Set this after static site deployment
       - key: PORT
         value: 5001
+
+  # Frontend Static Site
+  - type: web
+    name: campus-trails-admin
+    env: static
+    buildCommand: cd client && npm install && npm run build
+    staticPublishPath: ./client/build
+    headers:
+      - path: /*
+        name: X-Frame-Options
+        value: DENY
+      - path: /*
+        name: X-Content-Type-Options
+        value: nosniff
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: REACT_APP_API_URL
+        sync: false  # Set this to your backend API URL (e.g., https://campus-trails-admin-api.onrender.com)
