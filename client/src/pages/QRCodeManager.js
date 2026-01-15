@@ -204,7 +204,7 @@ function QRCodeManager() {
 // QR Code Display Component using canvas
 const QRCodeDisplay = ({ value, pinId }) => {
   const canvasRef = useRef(null);
-  const [qrError, setQrError] = useState(false);
+  const [qrError, setQrError] = React.useState(false);
 
   useEffect(() => {
     const generateQR = async () => {
