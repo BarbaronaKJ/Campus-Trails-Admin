@@ -78,3 +78,9 @@ export const profileAPI = {
   updateProfile: (data) => axios.put(`${API_URL}/auth/profile`, data, getAuthHeaders()),
   changePassword: (data) => axios.put(`${API_URL}/auth/change-password`, data, getAuthHeaders())
 };
+
+// Auth API (for forgot password)
+export const authAPI = {
+  forgotPassword: (email, useOTP = false) => axios.post(`${API_URL}/auth/forgot-password`, { email, useOTP }),
+  resetPassword: (data) => axios.post(`${API_URL}/auth/reset-password`, data)
+};

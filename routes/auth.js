@@ -229,4 +229,182 @@ router.put('/change-password', async (req, res) => {
   }
 });
 
+/**
+ * Forgot Password - Request password reset
+ * POST /api/admin/auth/forgot-password
+ * Request Body: { email, useOTP: true/false (optional, default: false) }
+ */
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email, useOTP } = req.body;
+
+    // Validation
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email is required',
+      });
+    }
+
+    // Find user by email
+    const user = await User.findByEmail(email.toLowerCase());
+    
+    // Always return success message (security best practice - don't reveal if email exists)
+    // But only send email if user exists and is admin/super_admin
+    if (user) {
+      // Check if user is admin or super_admin
+      const userRole = String(user.role).trim();
+      const isAdmin = userRole === 'admin';
+      const isSuperAdmin = userRole === 'super_admin';
+      
+      if (!isAdmin && !isSuperAdmin) {
+        // Return success even if not admin (security best practice)
+        return res.json({
+          success: true,
+          message: 'If an admin account with that email exists, a password reset email has been sent.',
+        });
+      }
+
+      try {
+        // Generate reset token or OTP
+        let resetToken;
+        let resetUrl;
+        
+        if (useOTP === true) {
+          // Generate 6-digit OTP
+          const otpCode = user.generatePasswordResetOTP();
+          await user.save();
+          
+          // Send OTP via email
+          const { sendPasswordResetOTP } = require('../utils/emailService');
+          await sendPasswordResetOTP(user.email, otpCode);
+          
+          return res.json({
+            success: true,
+            message: 'Password reset code has been sent to your email',
+            // In development, return OTP for testing (remove in production)
+            ...(process.env.NODE_ENV === 'development' && { otpCode }),
+          });
+        } else {
+          // Generate reset token
+          resetToken = user.generatePasswordResetToken();
+          await user.save();
+          
+          // Build reset URL (pointing to admin panel)
+          const baseUrl = process.env.ADMIN_PANEL_URL || process.env.RESET_PASSWORD_URL || 'http://localhost:3000';
+          resetUrl = `${baseUrl}/reset-password?token=${resetToken}`;
+          
+          // Send reset link via email
+          const { sendPasswordResetEmail } = require('../utils/emailService');
+          await sendPasswordResetEmail(user.email, resetToken, resetUrl);
+          
+          return res.json({
+            success: true,
+            message: 'Password reset email has been sent',
+            // In development, return reset URL for testing (remove in production)
+            ...(process.env.NODE_ENV === 'development' && { resetUrl, resetToken }),
+          });
+        }
+      } catch (emailError) {
+        console.error('❌ Error sending password reset email:', emailError);
+        // Still return success to user (don't reveal email sending failure)
+        return res.json({
+          success: true,
+          message: 'If an admin account with that email exists, a password reset email has been sent.',
+        });
+      }
+    } else {
+      // User not found - return success anyway (security best practice)
+      return res.json({
+        success: true,
+        message: 'If an admin account with that email exists, a password reset email has been sent.',
+      });
+    }
+  } catch (error) {
+    console.error('Forgot password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error processing password reset request',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+});
+
+/**
+ * Reset Password - Reset password using token or OTP
+ * POST /api/admin/auth/reset-password
+ * Request Body: { token (or otpCode), newPassword }
+ */
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, otpCode, newPassword } = req.body;
+
+    // Validation
+    if (!newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password is required',
+      });
+    }
+
+    if (!token && !otpCode) {
+      return res.status(400).json({
+        success: false,
+        message: 'Reset token or OTP code is required',
+      });
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 6 characters long',
+      });
+    }
+
+    // Check password has capital letter and symbol
+    const hasCapital = /[A-Z]/.test(newPassword);
+    const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(newPassword);
+    
+    if (!hasCapital || !hasSymbol) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must contain at least one capital letter and one symbol',
+      });
+    }
+
+    // Find user by reset token
+    const resetValue = token || otpCode;
+    const user = await User.findByResetToken(resetValue);
+
+    if (!user) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid or expired reset token/OTP',
+      });
+    }
+
+    // Update password (will be hashed by pre-save hook)
+    user.password = newPassword;
+    // Clear reset token fields
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    console.log(`✅ Password reset successful for ${user.email}`);
+
+    res.json({
+      success: true,
+      message: 'Password has been reset successfully',
+    });
+  } catch (error) {
+    console.error('Reset password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error processing password reset',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+});
+
 module.exports = router;
