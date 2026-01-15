@@ -383,6 +383,20 @@ function Dashboard() {
       const usageTrendsData = [];
       const nowForTrends = new Date();
       
+      // Check if we have analytics data
+      const hasAnalyticsData = analyticsDataSafe && (
+        (analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches) && analyticsDataSafe.recentSearches.length > 0) ||
+        (analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes) && analyticsDataSafe.recentRoutes.length > 0)
+      );
+      
+      console.log('📊 Building usage trends:', {
+        hasAnalyticsData,
+        recentSearchesCount: analyticsDataSafe.recentSearches?.length || 0,
+        recentRoutesCount: analyticsDataSafe.recentRoutes?.length || 0,
+        userSearches,
+        userPathfinding
+      });
+      
       for (let i = 6; i >= 0; i--) {
         const date = new Date(nowForTrends.getTime() - i * 24 * 60 * 60 * 1000);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -393,52 +407,42 @@ function Dashboard() {
 
         // Count searches for this day from analytics
         let daySearches = 0;
-        const recentSearches = analyticsDataSafe.recentSearches;
-        if (recentSearches && Array.isArray(recentSearches)) {
-          daySearches = recentSearches.filter(s => {
+        if (hasAnalyticsData && analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches)) {
+          daySearches = analyticsDataSafe.recentSearches.filter(s => {
             if (!s || !s.timestamp) return false;
             const searchDate = new Date(s.timestamp);
             return searchDate >= dayStart && searchDate <= dayEnd;
           }).length;
         }
         
-        // Fallback: Estimate from user activity if analytics not available
-        if (daySearches === 0 && (!recentSearches || recentSearches.length === 0)) {
-          // Distribute user searches across active days (simple approximation)
-          users.forEach(user => {
-            if (user.activity?.lastActiveDate) {
-              const lastActive = new Date(user.activity.lastActiveDate);
-              if (lastActive >= dayStart && lastActive <= dayEnd && user.activity?.searchCount) {
-                // If user was active this day, count some of their searches
-                daySearches += Math.floor((user.activity.searchCount || 0) / 7); // Rough estimate
-              }
-            }
-          });
+        // Fallback: Distribute user searches across last 7 days if analytics not available
+        if (!hasAnalyticsData && userSearches > 0) {
+          // Simple distribution: divide total searches by 7 days
+          daySearches = Math.floor(userSearches / 7);
+          // Add remainder to today
+          if (i === 0) {
+            daySearches += userSearches % 7;
+          }
         }
 
         // Count pathfinding routes for this day from analytics
         let dayPathfinding = 0;
-        const recentRoutes = analyticsDataSafe.recentRoutes;
-        if (recentRoutes && Array.isArray(recentRoutes)) {
-          dayPathfinding = recentRoutes.filter(r => {
+        if (hasAnalyticsData && analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
+          dayPathfinding = analyticsDataSafe.recentRoutes.filter(r => {
             if (!r || !r.timestamp) return false;
             const routeDate = new Date(r.timestamp);
             return routeDate >= dayStart && routeDate <= dayEnd;
           }).length;
         }
         
-        // Fallback: Estimate from user activity if analytics not available
-        if (dayPathfinding === 0 && (!recentRoutes || recentRoutes.length === 0)) {
-          // Distribute user pathfinding across active days (simple approximation)
-          users.forEach(user => {
-            if (user.activity?.lastActiveDate) {
-              const lastActive = new Date(user.activity.lastActiveDate);
-              if (lastActive >= dayStart && lastActive <= dayEnd && user.activity?.pathfindingCount) {
-                // If user was active this day, count some of their pathfinding
-                dayPathfinding += Math.floor((user.activity.pathfindingCount || 0) / 7); // Rough estimate
-              }
-            }
-          });
+        // Fallback: Distribute user pathfinding across last 7 days if analytics not available
+        if (!hasAnalyticsData && userPathfinding > 0) {
+          // Simple distribution: divide total pathfinding by 7 days
+          dayPathfinding = Math.floor(userPathfinding / 7);
+          // Add remainder to today
+          if (i === 0) {
+            dayPathfinding += userPathfinding % 7;
+          }
         }
 
         usageTrendsData.push({
@@ -447,7 +451,8 @@ function Dashboard() {
           PathfindingRoutes: dayPathfinding
         });
       }
-
+      
+      console.log('✅ Usage trends data built:', usageTrendsData);
       setUsageTrends(usageTrendsData);
     } catch (error) {
       console.error('❌ Error processing dashboard data:', error);
