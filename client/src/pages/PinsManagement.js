@@ -929,11 +929,16 @@ function PinsManagement() {
                     onChange={(e) => setNewPinData({...newPinData, category: e.target.value})}
                     required
                   >
-                    <option value="Academic">Academic</option>
-                    <option value="Administration">Administration</option>
-                    <option value="Facilities">Facilities</option>
-                    <option value="Services">Services</option>
-                    <option value="Recreational">Recreational</option>
+                    <option value="Commercial Zone">Commercial Zone</option>
+                    <option value="Admin/Operation Zone">Admin/Operation Zone</option>
+                    <option value="Academic Core Zone">Academic Core Zone</option>
+                    <option value="Auxillary Services Zone">Auxillary Services Zone</option>
+                    <option value="Dining">Dining</option>
+                    <option value="Comfort Rooms">Comfort Rooms</option>
+                    <option value="Research Zones">Research Zones</option>
+                    <option value="Clinic">Clinic</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Security">Security</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
@@ -1096,11 +1101,16 @@ function PinsManagement() {
                     onChange={(e) => setEditPinData({...editPinData, category: e.target.value})}
                     required
                   >
-                    <option value="Academic">Academic</option>
-                    <option value="Administration">Administration</option>
-                    <option value="Facilities">Facilities</option>
-                    <option value="Services">Services</option>
-                    <option value="Recreational">Recreational</option>
+                    <option value="Commercial Zone">Commercial Zone</option>
+                    <option value="Admin/Operation Zone">Admin/Operation Zone</option>
+                    <option value="Academic Core Zone">Academic Core Zone</option>
+                    <option value="Auxillary Services Zone">Auxillary Services Zone</option>
+                    <option value="Dining">Dining</option>
+                    <option value="Comfort Rooms">Comfort Rooms</option>
+                    <option value="Research Zones">Research Zones</option>
+                    <option value="Clinic">Clinic</option>
+                    <option value="Parking">Parking</option>
+                    <option value="Security">Security</option>
                     <option value="Other">Other</option>
                   </select>
                 </div>
