@@ -67,6 +67,13 @@ router.get('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Helper function to generate QR code deep link string
+const generateQRCode = (pinId) => {
+  // Format: campustrails://pin/{pinId}
+  // This deep link will open the app and navigate to the specific pin
+  return `campustrails://pin/${pinId}`;
+};
+
 // Create pin
 router.post('/', authenticateToken, async (req, res) => {
   try {
@@ -83,6 +90,16 @@ router.post('/', authenticateToken, async (req, res) => {
     }
 
     const pin = new Pin(pinData);
+    
+    // Auto-generate QR code if not provided and pin is visible
+    // Do this after creating the pin object so we can use the pin.id
+    if (!pin.qrCode && pin.isVisible !== false) {
+      // Use pin.id for the QR code deep link
+      const pinId = pin.id || pin._id;
+      pin.qrCode = generateQRCode(pinId);
+      console.log(`✅ Auto-generated QR code for pin: ${pin.qrCode}`);
+    }
+    
     await pin.save();
 
     res.status(201).json({ success: true, pin });
@@ -98,9 +115,22 @@ router.post('/', authenticateToken, async (req, res) => {
 // Update pin
 router.put('/:id', authenticateToken, async (req, res) => {
   try {
+    const updateData = { ...req.body, updatedAt: Date.now() };
+    
+    // Auto-generate QR code if not provided, pin is being made visible, and doesn't have one
+    const existingPin = await Pin.findById(req.params.id);
+    if (existingPin) {
+      // If making pin visible and it doesn't have a QR code, generate one
+      if (!updateData.qrCode && (updateData.isVisible !== false || existingPin.isVisible !== false) && !existingPin.qrCode) {
+        const pinId = updateData.id || existingPin.id;
+        updateData.qrCode = generateQRCode(pinId);
+        console.log(`✅ Auto-generated QR code for updated pin: ${updateData.qrCode}`);
+      }
+    }
+
     const pin = await Pin.findByIdAndUpdate(
       req.params.id,
-      { ...req.body, updatedAt: Date.now() },
+      updateData,
       { new: true, runValidators: true }
     ).populate('campusId', 'name');
 

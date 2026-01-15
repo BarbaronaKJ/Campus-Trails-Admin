@@ -111,6 +111,7 @@ function Layout() {
           {/* Content & Assets */}
           <MenuSection title="Content & Assets" sectionKey="contentAssets">
             <MenuItem to="/media" label="Media Library" />
+            <MenuItem to="/qr-codes" label="QR Code Manager" />
           </MenuSection>
 
           {/* User & Interaction */}
