@@ -338,8 +338,27 @@ function Dashboard() {
       // Combine user-specific and anonymous analytics
       // Ensure analyticsData exists before accessing properties
       const analyticsDataSafe = analyticsData || {};
-      const anonymousSearches = analyticsDataSafe.totalSearches || 0;
-      const anonymousPathfinding = analyticsDataSafe.totalPathfindingRoutes || 0;
+      
+      // Handle different response structures
+      let anonymousSearches = 0;
+      let anonymousPathfinding = 0;
+      
+      if (analyticsDataSafe.totalSearches !== undefined) {
+        anonymousSearches = analyticsDataSafe.totalSearches;
+      } else if (analyticsDataSafe.recentSearchesCount !== undefined) {
+        // Fallback to recent count if total not available
+        anonymousSearches = analyticsDataSafe.recentSearchesCount;
+      }
+      
+      if (analyticsDataSafe.totalPathfindingRoutes !== undefined) {
+        anonymousPathfinding = analyticsDataSafe.totalPathfindingRoutes;
+      } else if (analyticsDataSafe.recentRoutesCount !== undefined) {
+        // Fallback to recent count if total not available
+        anonymousPathfinding = analyticsDataSafe.recentRoutesCount;
+      } else if (analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
+        // Count from recent routes array if available
+        anonymousPathfinding = analyticsDataSafe.recentRoutes.length;
+      }
       const totalSearches = userSearches + anonymousSearches;
       const totalPathfinding = userPathfinding + anonymousPathfinding;
       
