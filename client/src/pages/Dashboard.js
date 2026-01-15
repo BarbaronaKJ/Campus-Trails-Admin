@@ -29,6 +29,7 @@ function Dashboard() {
     express: 'checking'
   });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const CAMPUS_TRAILS_GREEN = '#28a745';
   const CAMPUS_TRAILS_BLUE = '#007bff';
@@ -75,29 +76,75 @@ function Dashboard() {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError('');
       const baseUrl = getApiBaseUrl();
       const token = localStorage.getItem('adminToken');
       
+      console.log('🔍 Dashboard: Fetching data...');
+      console.log('🔍 API Base URL:', baseUrl);
+      console.log('🔍 Has token:', !!token);
+      
+      if (!token) {
+        setError('Not authenticated. Please log in again.');
+        setLoading(false);
+        return;
+      }
+
       // Fetch campuses
-      const campusesRes = await campusesAPI.getAll();
-      const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
-      setCampuses(campusesData);
+      let campusesData = [];
+      try {
+        const campusesRes = await campusesAPI.getAll();
+        campusesData = campusesRes.data?.campuses || campusesRes.data || [];
+        setCampuses(campusesData);
+        console.log('✅ Campuses fetched:', campusesData.length);
+      } catch (err) {
+        console.error('❌ Error fetching campuses:', err);
+        setError(`Error fetching campuses: ${err.message || 'Unknown error'}`);
+      }
 
       // Build query params
       const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
 
       // Fetch all data
-      const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).then(r => r.json()),
-        usersAPI.getAll({ limit: 10000 }),
-        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 })
-      ]);
+      let pins = [];
+      let users = [];
+      let suggestions = [];
+      
+      try {
+        const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
+          fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(async r => {
+            if (!r.ok) {
+              const errorText = await r.text();
+              throw new Error(`Pins API error (${r.status}): ${errorText}`);
+            }
+            return r.json();
+          }),
+          usersAPI.getAll({ limit: 10000 }).catch(err => {
+            console.error('❌ Error fetching users:', err);
+            throw new Error(`Users API error: ${err.message || 'Unknown error'}`);
+          }),
+          suggestionsAndFeedbacksAPI.getAll({ limit: 1000 }).catch(err => {
+            console.error('❌ Error fetching suggestions:', err);
+            // Don't throw - suggestions are optional
+            return { data: { suggestions: [] } };
+          })
+        ]);
 
-      const pins = pinsRes.pins || pinsRes.data || [];
-      const users = usersRes.data?.users || usersRes.data || [];
-      const suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
+        pins = pinsRes.pins || pinsRes.data || [];
+        users = usersRes.data?.users || usersRes.data || [];
+        suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
+        
+        console.log('✅ Data fetched:', { pins: pins.length, users: users.length, suggestions: suggestions.length });
+      } catch (err) {
+        console.error('❌ Error fetching dashboard data:', err);
+        setError(`Error fetching data: ${err.message || 'Unknown error'}. Check console for details.`);
+        // Set empty arrays to prevent crashes
+        pins = [];
+        users = [];
+        suggestions = [];
+      }
 
       // Extract all feedbackHistory from users for facility reports
       const allFeedbackHistory = [];
@@ -199,7 +246,8 @@ function Dashboard() {
 
       setFeedbackTrends(trendsData);
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
+      console.error('❌ Error processing dashboard data:', error);
+      setError(`Error processing data: ${error.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -236,6 +284,46 @@ function Dashboard() {
           </select>
         </div>
       </div>
+
+      {/* Error Message */}
+      {error && (
+        <div style={{
+          backgroundColor: '#f8d7da',
+          color: '#721c24',
+          padding: '15px',
+          margin: '20px',
+          borderRadius: '5px',
+          border: '1px solid #f5c6cb'
+        }}>
+          <strong>⚠️ Error:</strong> {error}
+          <br />
+          <small style={{ marginTop: '10px', display: 'block' }}>
+            Check browser console (F12) for more details. Make sure:
+            <ul style={{ marginTop: '5px', paddingLeft: '20px' }}>
+              <li>REACT_APP_API_URL is set correctly in Render</li>
+              <li>Backend service is running</li>
+              <li>You are logged in</li>
+            </ul>
+          </small>
+          <button 
+            onClick={() => {
+              setError('');
+              fetchData();
+            }}
+            style={{
+              marginTop: '10px',
+              padding: '5px 15px',
+              backgroundColor: '#007bff',
+              color: 'white',
+              border: 'none',
+              borderRadius: '3px',
+              cursor: 'pointer'
+            }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
 
       {/* System Health */}
       <div className="dashboard-section">
