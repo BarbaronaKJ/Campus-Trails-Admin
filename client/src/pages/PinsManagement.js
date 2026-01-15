@@ -46,6 +46,10 @@ function PinsManagement() {
   const [pinSelectionSearch, setPinSelectionSearch] = useState('')
   const [pinSelectionViewMode, setPinSelectionViewMode] = useState('all') // all, visible, waypoints
   
+  // Pending connections state (for batch confirmation)
+  const [pendingNeighbors, setPendingNeighbors] = useState([])
+  const [isSavingConnections, setIsSavingConnections] = useState(false)
+  
   // Map click mode for adding new pin
   const [mapClickMode, setMapClickMode] = useState(false) // true when waiting for map click to set coordinates
   
@@ -57,6 +61,15 @@ function PinsManagement() {
   useEffect(() => {
     fetchData()
   }, [])
+  
+  // Initialize pending neighbors when modal opens
+  useEffect(() => {
+    if (selectedPin && selectedPin.neighbors) {
+      setPendingNeighbors([...selectedPin.neighbors])
+    } else if (selectedPin) {
+      setPendingNeighbors([])
+    }
+  }, [selectedPin])
 
   const fetchData = async () => {
     try {
@@ -1315,13 +1328,19 @@ function PinsManagement() {
 
       {/* Neighbors Manager Modal */}
       {selectedPin && (
-        <div className="modal-overlay" onClick={() => setSelectedPin(null)}>
+        <div className="modal-overlay" onClick={() => {
+          setSelectedPin(null)
+          setPendingNeighbors([])
+        }}>
           <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Manage Connections: {selectedPin.title || 'Waypoint'}</h2>
               <button 
                 className="close-button"
-                onClick={() => setSelectedPin(null)}
+                onClick={() => {
+                  setSelectedPin(null)
+                  setPendingNeighbors([])
+                }}
               >
                 ×
               </button>
@@ -1364,11 +1383,64 @@ function PinsManagement() {
               </div>
             </div>
             
+            {/* Confirmation Button */}
+            <div style={{ 
+              padding: '15px', 
+              borderBottom: '1px solid #ddd', 
+              backgroundColor: '#f0f7ff',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <div>
+                <strong style={{ color: '#2c3e50' }}>Pending Connections: {pendingNeighbors.length || selectedPin.neighbors?.length || 0}</strong>
+                {pendingNeighbors.length !== (selectedPin.neighbors?.length || 0) && (
+                  <span style={{ 
+                    marginLeft: '10px', 
+                    color: '#ff9800', 
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                    (Unsaved changes)
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="button button-primary"
+                disabled={isSavingConnections || (pendingNeighbors.length === (selectedPin.neighbors?.length || 0) && 
+                  JSON.stringify([...pendingNeighbors].sort()) === JSON.stringify([...(selectedPin.neighbors || [])].sort()))}
+                onClick={async (e) => {
+                  e.preventDefault()
+                  e.stopPropagation()
+                  setIsSavingConnections(true)
+                  try {
+                    await handleUpdateNeighbors(selectedPin._id || selectedPin.id, pendingNeighbors)
+                    await fetchData()
+                    // Update selectedPin after successful update
+                    const updatedPin = pins.find(p => String(p._id || p.id) === String(selectedPin._id || selectedPin.id))
+                    if (updatedPin) {
+                      setSelectedPin(updatedPin)
+                      setPendingNeighbors([...updatedPin.neighbors])
+                    }
+                    setSuccess('Connections saved successfully!')
+                    setTimeout(() => setSuccess(''), 3000)
+                  } catch (error) {
+                    setError('Failed to save connections. Please try again.')
+                  } finally {
+                    setIsSavingConnections(false)
+                  }
+                }}
+              >
+                {isSavingConnections ? 'Saving...' : 'Confirm Connections'}
+              </button>
+            </div>
+            
             <div className="neighbors-manager">
               <div className="current-neighbors">
-                <h3>Current Connections ({selectedPin.neighbors?.length || 0})</h3>
+                <h3>Current Connections ({pendingNeighbors.length || selectedPin.neighbors?.length || 0})</h3>
                 <div className="neighbors-list">
-                  {selectedPin.neighbors?.map((neighborId, idx) => {
+                  {(pendingNeighbors.length > 0 ? pendingNeighbors : selectedPin.neighbors || []).map((neighborId, idx) => {
                     // Find neighbor by id field (not _id) - pathfinding uses id
                     const neighborIdStr = String(neighborId)
                     const neighbor = pins.find(p => {
@@ -1382,21 +1454,13 @@ function PinsManagement() {
                         <button 
                           type="button"
                           className="button button-danger button-small"
-                          onClick={async (e) => {
+                          onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
-                            // Filter out the neighbor using string comparison
-                            const newNeighbors = selectedPin.neighbors.filter(id => String(id) !== String(neighborId))
-                            await handleUpdateNeighbors(selectedPin._id || selectedPin.id, newNeighbors)
-                            // Refresh data to get updated neighbors from both pins (bidirectional removal)
-                            await fetchData()
-                            // Update selectedPin after successful update
-                            const updatedPin = pins.find(p => String(p._id || p.id) === String(selectedPin._id || selectedPin.id))
-                            if (updatedPin) {
-                              setSelectedPin(updatedPin)
-                            } else {
-                              setSelectedPin({...selectedPin, neighbors: newNeighbors})
-                            }
+                            // Filter out the neighbor using string comparison (update pending state)
+                            const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
+                            const newNeighbors = currentNeighbors.filter(id => String(id) !== String(neighborId))
+                            setPendingNeighbors(newNeighbors)
                           }}
                         >
                           Remove
@@ -1404,7 +1468,7 @@ function PinsManagement() {
                       </div>
                     )
                   })}
-                  {(!selectedPin.neighbors || selectedPin.neighbors.length === 0) && (
+                  {((pendingNeighbors.length > 0 ? pendingNeighbors : selectedPin.neighbors || []).length === 0) && (
                     <p className="no-neighbors">No connections yet</p>
                   )}
                 </div>
@@ -1414,7 +1478,8 @@ function PinsManagement() {
                 <h3>Available Pins ({filteredPinsForSelection.filter(p => {
                   const pinId = String(p.id || p._id)
                   const selectedId = String(selectedPin.id || selectedPin._id)
-                  const isConnected = selectedPin.neighbors?.some(n => String(n) === pinId)
+                  const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
+                  const isConnected = currentNeighbors.some(n => String(n) === pinId)
                   return pinId !== selectedId && !isConnected
                 }).length})</h3>
                 <div className="available-pins-list">
@@ -1424,7 +1489,8 @@ function PinsManagement() {
                       const pinId = String(p.id || p._id)
                       const selectedId = String(selectedPin.id || selectedPin._id)
                       // Check if already connected (compare as strings using id)
-                      const isConnected = selectedPin.neighbors?.some(n => String(n) === pinId)
+                      const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
+                      const isConnected = currentNeighbors.some(n => String(n) === pinId)
                       return pinId !== selectedId && !isConnected
                     })
                     .map(pin => (
@@ -1441,22 +1507,14 @@ function PinsManagement() {
                         <button 
                           type="button"
                           className="button button-success button-small"
-                          onClick={async (e) => {
+                          onClick={(e) => {
                             e.preventDefault()
                             e.stopPropagation()
                             // Use pin.id (not _id) for pathfinding connections
                             const pinId = pin.id || pin._id
-                            const newNeighbors = [...(selectedPin.neighbors || []), pinId]
-                            await handleUpdateNeighbors(selectedPin._id || selectedPin.id, newNeighbors)
-                            // Refresh data to get updated neighbors from both pins (bidirectional connection)
-                            await fetchData()
-                            // Update selectedPin after successful update
-                            const updatedPin = pins.find(p => String(p._id || p.id) === String(selectedPin._id || selectedPin.id))
-                            if (updatedPin) {
-                              setSelectedPin(updatedPin)
-                            } else {
-                              setSelectedPin({...selectedPin, neighbors: newNeighbors})
-                            }
+                            const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
+                            const newNeighbors = [...currentNeighbors, pinId]
+                            setPendingNeighbors(newNeighbors)
                           }}
                         >
                           Connect
