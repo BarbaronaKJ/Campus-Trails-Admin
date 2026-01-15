@@ -19,7 +19,7 @@ const authenticateToken = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'User not found' });
     }
 
-    if (user.role !== 'admin') {
+    if (user.role !== 'admin' && user.role !== 'super_admin') {
       return res.status(403).json({ success: false, message: 'Admin access required' });
     }
 
