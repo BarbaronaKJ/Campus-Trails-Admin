@@ -100,6 +100,9 @@ router.post('/send', authenticateToken, async (req, res) => {
     const successCount = tickets.filter(t => t.status === 'ok').length;
     const failureCount = tickets.length - successCount;
 
+    // Log detailed results
+    console.log(`📬 Notification send results: ${successCount} success, ${failureCount} failed out of ${tickets.length} total`);
+
     res.json({
       success: true,
       message: 'Notifications sent',
@@ -110,8 +113,17 @@ router.post('/send', authenticateToken, async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Send notification error:', error);
-    res.status(500).json({ success: false, message: 'Server error' });
+    console.error('❌ Send notification error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name
+    });
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error sending notifications',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 
