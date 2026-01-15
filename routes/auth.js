@@ -21,6 +21,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid email or password' });
     }
 
+    console.log(`🔍 Login attempt: ${email} - Current role: ${user.role}`);
+    console.log(`🔍 Role check: admin=${user.role === 'admin'}, super_admin=${user.role === 'super_admin'}`);
+
     if (user.role !== 'admin' && user.role !== 'super_admin') {
       console.log(`❌ Login attempt: Non-admin user - ${email} (role: ${user.role})`);
       return res.status(403).json({ success: false, message: 'Admin access required. Please contact an administrator.' });
