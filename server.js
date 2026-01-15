@@ -38,6 +38,7 @@ const campusesRoutes = require('./routes/campuses');
 const feedbacksRoutes = require('./routes/feedbacks');
 const suggestionsAndFeedbacksRoutes = require('./routes/suggestions_and_feedbacks');
 const notificationsRoutes = require('./routes/notifications');
+const analyticsRoutes = require('./routes/analytics');
 
 app.use('/api/admin/auth', authRoutes);
 app.use('/api/admin/pins', pinsRoutes);
@@ -46,6 +47,8 @@ app.use('/api/admin/campuses', campusesRoutes);
 app.use('/api/admin/feedbacks', feedbacksRoutes);
 app.use('/api/admin/suggestions_and_feedbacks', suggestionsAndFeedbacksRoutes);
 app.use('/api/admin/notifications', notificationsRoutes);
+// Analytics routes (no /admin prefix - used by mobile app and admin panel)
+app.use('/api/analytics', analyticsRoutes);
 
 // Handle /api/admin base route
 app.get('/api/admin', (req, res) => {
@@ -53,16 +56,17 @@ app.get('/api/admin', (req, res) => {
     success: true,
     message: 'Admin Panel API',
     version: '1.0.0',
-    endpoints: {
-      auth: '/api/admin/auth',
-      pins: '/api/admin/pins',
-      users: '/api/admin/users',
-      campuses: '/api/admin/campuses',
-      notifications: '/api/admin/notifications',
-      feedbacks: '/api/admin/feedbacks',
-      developers: '/api/admin/developers',
-      suggestions_and_feedbacks: '/api/admin/suggestions_and_feedbacks'
-    }
+      endpoints: {
+        auth: '/api/admin/auth',
+        pins: '/api/admin/pins',
+        users: '/api/admin/users',
+        campuses: '/api/admin/campuses',
+        notifications: '/api/admin/notifications',
+        feedbacks: '/api/admin/feedbacks',
+        developers: '/api/admin/developers',
+        suggestions_and_feedbacks: '/api/admin/suggestions_and_feedbacks',
+        analytics: '/api/analytics'
+      }
   });
 });
 
