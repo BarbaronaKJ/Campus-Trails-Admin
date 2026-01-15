@@ -11,7 +11,19 @@ function QRCodeManager() {
 
   useEffect(() => {
     fetchData();
-  }, [selectedCampus, searchQuery]);
+  }, [selectedCampus]);
+
+  // Filter pins based on search query (client-side, no need to refetch)
+  const filteredPins = React.useMemo(() => {
+    if (!searchQuery) return pins;
+    const query = searchQuery.toLowerCase();
+    return pins.filter(pin => {
+      const title = (pin.title || '').toLowerCase();
+      const description = (pin.description || '').toLowerCase();
+      const qrCode = (pin.qrCode || '').toLowerCase();
+      return title.includes(query) || description.includes(query) || qrCode.includes(query);
+    });
+  }, [pins, searchQuery]);
 
   const fetchData = async () => {
     try {
@@ -54,17 +66,6 @@ function QRCodeManager() {
         filteredPins = filteredPins.filter(pin => {
           const campusId = pin.campusId?._id || pin.campusId;
           return campusId === selectedCampus || campusId?.toString() === selectedCampus;
-        });
-      }
-
-      // Apply search filter
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        filteredPins = filteredPins.filter(pin => {
-          const title = (pin.title || '').toLowerCase();
-          const description = (pin.description || '').toLowerCase();
-          const qrCode = (pin.qrCode || '').toLowerCase();
-          return title.includes(query) || description.includes(query) || qrCode.includes(query);
         });
       }
 
@@ -141,8 +142,8 @@ function QRCodeManager() {
         </div>
 
         {/* QR Codes Grid */}
-        {pins.length === 0 ? (
-          <p>No QR codes found. Pins with QR codes will appear here.</p>
+        {filteredPins.length === 0 ? (
+          <p>No QR codes found. {searchQuery ? 'Try a different search term.' : 'Pins with QR codes will appear here.'}</p>
         ) : (
           <div style={{ 
             display: 'grid', 
@@ -150,7 +151,7 @@ function QRCodeManager() {
             gap: '20px',
             marginTop: '20px'
           }}>
-            {pins.map(pin => {
+            {filteredPins.map(pin => {
               const qrCodeValue = pin.qrCode || `campustrails://pin/${pin.id}`;
               return (
                 <div 
