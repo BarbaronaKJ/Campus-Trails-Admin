@@ -348,7 +348,7 @@ function Dashboard() {
       const trendsData = [];
       
       for (let i = 6; i >= 0; i--) {
-        const date = new Date(nowForTrends.getTime() - i * 24 * 60 * 60 * 1000);
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
         const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         
         // Create day boundaries
