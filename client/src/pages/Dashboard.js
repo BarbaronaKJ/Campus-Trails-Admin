@@ -698,8 +698,8 @@ function Dashboard() {
                 </AreaChart>
               </ResponsiveContainer>
             </div>
-          </div>
-        )}
+          )}
+        </div>
         
         {/* Additional Stats */}
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginTop: '20px' }}>
