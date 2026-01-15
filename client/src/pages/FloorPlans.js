@@ -44,6 +44,10 @@ function FloorPlans() {
       const pinsData = await pinsResponse.json();
       let allPins = pinsData.pins || pinsData.data || [];
       
+      // IMPORTANT: Filter out invisible waypoints (client-side backup)
+      // Only show pins that are explicitly visible (isVisible === true)
+      allPins = allPins.filter(pin => pin.isVisible === true);
+      
       // Filter by campus if selected
       if (selectedCampus !== 'all') {
         allPins = allPins.filter(pin => 
