@@ -201,7 +201,6 @@ function PinsManagement() {
       const response = await pinsAPI.create(newPinData)
 
       if (response.data && (response.data.success || response.data.pin)) {
-        const createdPin = response.data.pin || response.data.data || response.data
         setSuccess('Pin created successfully!')
         setShowNewPinForm(false)
         setNewPinData({

@@ -82,11 +82,12 @@ You should see:
 
 **Root Directory:**
 - Click **"Edit"** and set to: `client`
+- **IMPORTANT**: This tells Vercel to treat the `client` folder as the project root
 
 **Build Settings:**
-- **Build Command**: `npm run build`
-- **Output Directory**: `build`
-- **Install Command**: `npm install`
+- **Build Command**: `npm run build` (Vercel will auto-detect this)
+- **Output Directory**: `build` (Vercel will auto-detect this)
+- **Install Command**: `npm install` (Vercel will auto-detect this)
 
 ### 2.3 Set Environment Variables in Vercel
 

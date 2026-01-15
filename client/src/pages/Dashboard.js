@@ -41,6 +41,7 @@ function Dashboard() {
     // Refresh system health every 30 seconds
     const healthInterval = setInterval(checkSystemHealth, 30000);
     return () => clearInterval(healthInterval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampus]);
 
   const checkSystemHealth = async () => {

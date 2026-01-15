@@ -115,9 +115,7 @@ function FloorPlans() {
     updatePinFloors(pinId, updatedFloors);
   };
 
-  const handleAddRoom = (pinId, floorIndex) => {
-    setAddingRoom({ pinId, floorIndex });
-  };
+  // Removed unused handleAddRoom function - using setAddingRoom directly
 
   const handleSaveNewRoom = (pinId, floorIndex, roomData) => {
     const pin = pins.find(p => (p._id || p.id) === pinId);

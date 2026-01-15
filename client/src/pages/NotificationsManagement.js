@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { notificationsAPI, usersAPI } from '../services/api';
+import { notificationsAPI } from '../services/api';
 
 function NotificationsManagement() {
   const [formData, setFormData] = useState({ title: '', body: '', targetAudience: 'all' });
