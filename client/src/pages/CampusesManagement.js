@@ -59,7 +59,7 @@ function CampusesManagement() {
       <div className="card">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0 }}>Campuses List</h2>
-          <button onClick={() => { setFormData({ name: '', mapImageUrl: '' }); setShowModal(true); }} className="btn btn-primary">Create Campus</button>
+          <button onClick={() => { setFormData({ name: '', mapImageUrl: '' }); setShowModal(true); }} className="btn btn-primary">Add New Campus</button>
         </div>
         <table className="table">
           <thead>
@@ -93,7 +93,7 @@ function CampusesManagement() {
       {showModal && (
         <div className="modal">
           <div className="modal-content">
-            <h2>{formData._id ? 'Edit' : 'Create'} Campus</h2>
+            <h2>{formData._id ? 'Edit' : 'Add New'} Campus</h2>
             <input placeholder="Name" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} />
             <input placeholder="Map Image URL" value={formData.mapImageUrl} onChange={e => setFormData({ ...formData, mapImageUrl: e.target.value })} />
             <button onClick={handleSave} className="btn btn-primary">Save</button>
