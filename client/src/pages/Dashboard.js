@@ -656,7 +656,10 @@ function Dashboard() {
             </div>
           </div>
         )}
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
+        
+        {/* Additional Stats */}
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginTop: '20px' }}>
+          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_YELLOW}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Saved Pins</h3>
             <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalSavedPins}</p>
             <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
