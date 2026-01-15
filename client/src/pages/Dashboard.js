@@ -168,7 +168,8 @@ function Dashboard() {
           }),
           analyticsAPI.getStats({ days: 30 }).catch(err => {
             console.error('❌ Error fetching analytics:', err);
-            // Don't throw - analytics are optional
+            console.warn('⚠️ Analytics API not available (404). Dashboard will work without analytics data.');
+            // Don't throw - analytics are optional, return null to indicate no data
             return { data: null };
           })
         ]);
