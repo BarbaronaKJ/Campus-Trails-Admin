@@ -72,3 +72,9 @@ export const analyticsAPI = {
   getPopularRoutes: (params) => axios.get(`${MAIN_API_URL}/api/analytics/popular-routes`, { params, ...getAuthHeaders() }),
   getPopularSearches: (params) => axios.get(`${MAIN_API_URL}/api/analytics/popular-searches`, { params, ...getAuthHeaders() })
 };
+
+// Profile API
+export const profileAPI = {
+  updateProfile: (data) => axios.put(`${API_URL}/auth/profile`, data, getAuthHeaders()),
+  changePassword: (data) => axios.put(`${API_URL}/auth/change-password`, data, getAuthHeaders())
+};
