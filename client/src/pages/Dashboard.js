@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI } from '../services/api';
+import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI, analyticsAPI } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import './Dashboard.css';
 
@@ -20,10 +20,16 @@ function Dashboard() {
     totalPathfinding: 0,
     totalSavedPins: 0,
     activeUsers7Days: 0,
+    userSearches: 0,
+    anonymousSearches: 0,
+    userPathfinding: 0,
+    anonymousPathfinding: 0,
     avgSearchesPerUser: 0,
     avgPathfindingPerUser: 0,
     avgSavedPinsPerUser: 0
   });
+  const [popularRoutes, setPopularRoutes] = useState([]);
+  const [popularSearches, setPopularSearches] = useState([]);
   const [systemHealth, setSystemHealth] = useState({
     mongodb: 'checking',
     express: 'checking'
@@ -116,9 +122,10 @@ function Dashboard() {
       let pins = [];
       let users = [];
       let suggestions = [];
+      let analyticsData = null;
       
       try {
-        const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
+        const [pinsRes, usersRes, suggestionsRes, analyticsRes] = await Promise.all([
           fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }).then(async r => {
@@ -149,6 +156,11 @@ function Dashboard() {
             
             // Don't throw - suggestions are optional for dashboard
             return { data: { suggestions: [] } };
+          }),
+          analyticsAPI.getStats({ days: 30 }).catch(err => {
+            console.error('❌ Error fetching analytics:', err);
+            // Don't throw - analytics are optional
+            return { data: null };
           })
         ]);
 
@@ -196,6 +208,28 @@ function Dashboard() {
           suggestions = suggestionsRes;
         } else {
           suggestions = [];
+        }
+
+        // Handle analytics response
+        if (analyticsRes && analyticsRes.data && analyticsRes.data.data) {
+          analyticsData = analyticsRes.data.data;
+          console.log('✅ Analytics data fetched:', analyticsData);
+          
+          // Set popular routes and searches
+          if (analyticsData.popularRoutes) {
+            setPopularRoutes(analyticsData.popularRoutes);
+          }
+          if (analyticsData.popularSearches) {
+            setPopularSearches(analyticsData.popularSearches);
+          }
+        } else if (analyticsRes && analyticsRes.data) {
+          analyticsData = analyticsRes.data;
+          if (analyticsData.popularRoutes) {
+            setPopularRoutes(analyticsData.popularRoutes);
+          }
+          if (analyticsData.popularSearches) {
+            setPopularSearches(analyticsData.popularSearches);
+          }
         }
         
         console.log('✅ Data fetched:', { 
@@ -246,9 +280,9 @@ function Dashboard() {
         suggestionsAndFeedbacks: suggestions.length
       });
 
-      // Calculate local tracking data
-      let totalSearches = 0;
-      let totalPathfinding = 0;
+      // Calculate local tracking data (user-specific)
+      let userSearches = 0;
+      let userPathfinding = 0;
       let totalSavedPins = 0;
       const activeUsersSet = new Set();
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -259,14 +293,14 @@ function Dashboard() {
           totalSavedPins += user.activity.savedPins.length;
         }
 
-        // Count searches
+        // Count searches (user-specific)
         if (user.activity?.searchCount) {
-          totalSearches += user.activity.searchCount || 0;
+          userSearches += user.activity.searchCount || 0;
         }
 
-        // Count pathfinding
+        // Count pathfinding (user-specific)
         if (user.activity?.pathfindingCount) {
-          totalPathfinding += user.activity.pathfindingCount || 0;
+          userPathfinding += user.activity.pathfindingCount || 0;
         }
 
         // Track active users (last 7 days)
@@ -278,13 +312,23 @@ function Dashboard() {
         }
       });
 
+      // Combine user-specific and anonymous analytics
+      const anonymousSearches = analyticsData?.totalSearches || 0;
+      const anonymousPathfinding = analyticsData?.totalPathfindingRoutes || 0;
+      const totalSearches = userSearches + anonymousSearches;
+      const totalPathfinding = userPathfinding + anonymousPathfinding;
+
       setLocalTracking({
         totalSearches,
         totalPathfinding,
         totalSavedPins,
         activeUsers7Days: activeUsersSet.size,
-        avgSearchesPerUser: users.length > 0 ? (totalSearches / users.length).toFixed(1) : 0,
-        avgPathfindingPerUser: users.length > 0 ? (totalPathfinding / users.length).toFixed(1) : 0,
+        userSearches, // User-specific searches
+        anonymousSearches, // Anonymous searches
+        userPathfinding, // User-specific pathfinding
+        anonymousPathfinding, // Anonymous pathfinding
+        avgSearchesPerUser: users.length > 0 ? (userSearches / users.length).toFixed(1) : 0,
+        avgPathfindingPerUser: users.length > 0 ? (userPathfinding / users.length).toFixed(1) : 0,
         avgSavedPinsPerUser: users.length > 0 ? (totalSavedPins / users.length).toFixed(1) : 0
       });
 
@@ -450,23 +494,43 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Simple Local Tracking */}
+      {/* Usage Analytics */}
       <div className="dashboard-section">
-        <h2>Local Tracking Data</h2>
+        <h2>Usage Analytics</h2>
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
           <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_BLUE}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Searches</h3>
             <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalSearches}</p>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-              Avg: {localTracking.avgSearchesPerUser} per user
+            <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
+              {localTracking.userSearches > 0 && (
+                <span>Users: {localTracking.userSearches} • </span>
+              )}
+              {localTracking.anonymousSearches > 0 && (
+                <span>Anonymous: {localTracking.anonymousSearches}</span>
+              )}
             </p>
+            {localTracking.avgSearchesPerUser > 0 && (
+              <p style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                Avg: {localTracking.avgSearchesPerUser} per logged-in user
+              </p>
+            )}
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_YELLOW}`, padding: '15px' }}>
+          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Pathfinding Routes</h3>
             <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalPathfinding}</p>
-            <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
-              Avg: {localTracking.avgPathfindingPerUser} per user
+            <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
+              {localTracking.userPathfinding > 0 && (
+                <span>Users: {localTracking.userPathfinding} • </span>
+              )}
+              {localTracking.anonymousPathfinding > 0 && (
+                <span>Anonymous: {localTracking.anonymousPathfinding}</span>
+              )}
             </p>
+            {localTracking.avgPathfindingPerUser > 0 && (
+              <p style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
+                Avg: {localTracking.avgPathfindingPerUser} per logged-in user
+              </p>
+            )}
           </div>
           <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Saved Pins</h3>
@@ -484,6 +548,82 @@ function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Popular Routes */}
+      {popularRoutes.length > 0 && (
+        <div className="dashboard-section">
+          <h2>Most Popular Routes (Point A → Point B)</h2>
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {popularRoutes.slice(0, 10).map((route, index) => (
+                <div key={index} style={{ 
+                  padding: '12px', 
+                  backgroundColor: '#f8f9fa', 
+                  borderRadius: '5px',
+                  border: '1px solid #e0e0e0'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <strong style={{ fontSize: '13px' }}>
+                        {route.startPoint.title || route.startPoint.pinId} → {route.endPoint.title || route.endPoint.pinId}
+                      </strong>
+                      {route.startPoint.description && (
+                        <p style={{ fontSize: '11px', color: '#666', margin: '4px 0 0 0' }}>
+                          {route.startPoint.description} → {route.endPoint.description}
+                        </p>
+                      )}
+                    </div>
+                    <div style={{ 
+                      backgroundColor: CAMPUS_TRAILS_BLUE, 
+                      color: 'white', 
+                      padding: '4px 12px', 
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      {route.count}x
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Popular Searches */}
+      {popularSearches.length > 0 && (
+        <div className="dashboard-section">
+          <h2>Most Popular Searches</h2>
+          <div className="card" style={{ padding: '20px' }}>
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {popularSearches.slice(0, 10).map((search, index) => (
+                <div key={index} style={{ 
+                  padding: '12px', 
+                  backgroundColor: '#f8f9fa', 
+                  borderRadius: '5px',
+                  border: '1px solid #e0e0e0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <span style={{ fontSize: '13px' }}>"{search.query}"</span>
+                  <span style={{ 
+                    backgroundColor: CAMPUS_TRAILS_GREEN, 
+                    color: 'white', 
+                    padding: '4px 12px', 
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}>
+                    {search.count}x
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Feedback Trends */}
       <div className="dashboard-section">

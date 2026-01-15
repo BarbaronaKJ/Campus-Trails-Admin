@@ -64,3 +64,11 @@ export const suggestionsAndFeedbacksAPI = {
   update: (id, data) => axios.put(`${API_URL}/suggestions_and_feedbacks/${id}`, data, getAuthHeaders()),
   delete: (id) => axios.delete(`${API_URL}/suggestions_and_feedbacks/${id}`, getAuthHeaders())
 };
+
+// Analytics API (uses main API, not admin API)
+const MAIN_API_URL = BASE_API_URL.replace('/api/admin', '') || BASE_API_URL;
+export const analyticsAPI = {
+  getStats: (params) => axios.get(`${MAIN_API_URL}/api/analytics/stats`, { params, ...getAuthHeaders() }),
+  getPopularRoutes: (params) => axios.get(`${MAIN_API_URL}/api/analytics/popular-routes`, { params, ...getAuthHeaders() }),
+  getPopularSearches: (params) => axios.get(`${MAIN_API_URL}/api/analytics/popular-searches`, { params, ...getAuthHeaders() })
+};
