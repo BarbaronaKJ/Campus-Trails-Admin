@@ -18,9 +18,8 @@ services:
         value: 5001
 
   # Frontend Static Site
-  - type: web
+  - type: static
     name: campus-trails-admin
-    env: static
     buildCommand: cd client && npm install && npm run build
     staticPublishPath: ./client/build
     pullRequestPreviewsEnabled: false
