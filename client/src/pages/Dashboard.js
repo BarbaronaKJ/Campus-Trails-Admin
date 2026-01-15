@@ -401,6 +401,20 @@ function Dashboard() {
             return searchDate >= dayStart && searchDate <= dayEnd;
           }).length;
         }
+        
+        // Fallback: Estimate from user activity if analytics not available
+        if (daySearches === 0 && (!recentSearches || recentSearches.length === 0)) {
+          // Distribute user searches across active days (simple approximation)
+          users.forEach(user => {
+            if (user.activity?.lastActiveDate) {
+              const lastActive = new Date(user.activity.lastActiveDate);
+              if (lastActive >= dayStart && lastActive <= dayEnd && user.activity?.searchCount) {
+                // If user was active this day, count some of their searches
+                daySearches += Math.floor((user.activity.searchCount || 0) / 7); // Rough estimate
+              }
+            }
+          });
+        }
 
         // Count pathfinding routes for this day from analytics
         let dayPathfinding = 0;
@@ -411,6 +425,20 @@ function Dashboard() {
             const routeDate = new Date(r.timestamp);
             return routeDate >= dayStart && routeDate <= dayEnd;
           }).length;
+        }
+        
+        // Fallback: Estimate from user activity if analytics not available
+        if (dayPathfinding === 0 && (!recentRoutes || recentRoutes.length === 0)) {
+          // Distribute user pathfinding across active days (simple approximation)
+          users.forEach(user => {
+            if (user.activity?.lastActiveDate) {
+              const lastActive = new Date(user.activity.lastActiveDate);
+              if (lastActive >= dayStart && lastActive <= dayEnd && user.activity?.pathfindingCount) {
+                // If user was active this day, count some of their pathfinding
+                dayPathfinding += Math.floor((user.activity.pathfindingCount || 0) / 7); // Rough estimate
+              }
+            }
+          });
         }
 
         usageTrendsData.push({
@@ -612,10 +640,17 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* Usage Trends Chart */}
-        {usageTrends.length > 0 && (
-          <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
-            <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>Usage Trends (Last 7 Days)</h3>
+        {/* Usage Trends Chart - Always show, even if data is zero */}
+        <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
+          <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>Usage Trends (Last 7 Days)</h3>
+          {usageTrends.length === 0 ? (
+            <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+              <p>No usage data available yet.</p>
+              <p style={{ fontSize: '12px', marginTop: '10px' }}>
+                Data will appear here once analytics API is deployed and tracking begins.
+              </p>
+            </div>
+          ) : (
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={usageTrends}>
