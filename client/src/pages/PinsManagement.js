@@ -998,7 +998,7 @@ function PinsManagement() {
                     onChange={(e) => {
                       if (e.target.value === '__custom__') {
                         // User wants to enter custom category
-                        const customCategory = prompt('Enter custom category name:')
+                        const customCategory = window.prompt('Enter custom category name:')
                         if (customCategory && customCategory.trim()) {
                           setNewPinData({...newPinData, category: customCategory.trim()})
                           // Add to available categories if not already there
@@ -1024,7 +1024,7 @@ function PinsManagement() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`Add "${newPinData.category}" to the category list?`)) {
+                          if (window.confirm(`Add "${newPinData.category}" to the category list?`)) {
                             if (!availableCategories.includes(newPinData.category)) {
                               setAvailableCategories([...availableCategories, newPinData.category].sort())
                             }
@@ -1199,7 +1199,7 @@ function PinsManagement() {
                     onChange={(e) => {
                       if (e.target.value === '__custom__') {
                         // User wants to enter custom category
-                        const customCategory = prompt('Enter custom category name:')
+                        const customCategory = window.prompt('Enter custom category name:')
                         if (customCategory && customCategory.trim()) {
                           setEditPinData({...editPinData, category: customCategory.trim()})
                           // Add to available categories if not already there
@@ -1229,7 +1229,7 @@ function PinsManagement() {
                       <button
                         type="button"
                         onClick={() => {
-                          if (confirm(`Add "${editPinData.category}" to the category list?`)) {
+                          if (window.confirm(`Add "${editPinData.category}" to the category list?`)) {
                             if (!availableCategories.includes(editPinData.category)) {
                               setAvailableCategories([...availableCategories, editPinData.category].sort())
                             }
