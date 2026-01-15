@@ -382,7 +382,18 @@ function Dashboard() {
         anonymousPathfinding,
         totalPathfinding,
         analyticsDataAvailable: !!analyticsData,
-        analyticsTotalRoutes: analyticsDataSafe.totalPathfindingRoutes
+        analyticsTotalRoutes: analyticsDataSafe.totalPathfindingRoutes,
+        analyticsRecentRoutesCount: analyticsDataSafe.recentRoutesCount,
+        analyticsRecentRoutesLength: analyticsDataSafe.recentRoutes?.length
+      });
+      
+      // Additional debug: Show what will be displayed
+      console.log('📈 Dashboard will display:', {
+        'Pathfinding Routes card': totalPathfinding,
+        breakdown: {
+          'From logged-in users': userPathfinding,
+          'From anonymous tracking': anonymousPathfinding
+        }
       });
 
       setLocalTracking({
