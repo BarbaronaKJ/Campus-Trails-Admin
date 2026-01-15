@@ -366,6 +366,45 @@ function Dashboard() {
       }
 
       setFeedbackTrends(trendsData);
+
+      // Build usage trends data for charts (last 7 days)
+      const usageTrendsData = [];
+      const now = new Date();
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(date);
+        dayEnd.setHours(23, 59, 59, 999);
+
+        // Count searches for this day from analytics
+        let daySearches = 0;
+        if (analyticsData?.recentSearches && Array.isArray(analyticsData.recentSearches)) {
+          daySearches = analyticsData.recentSearches.filter(s => {
+            const searchDate = new Date(s.timestamp);
+            return searchDate >= dayStart && searchDate <= dayEnd;
+          }).length;
+        }
+
+        // Count pathfinding routes for this day from analytics
+        let dayPathfinding = 0;
+        if (analyticsData?.recentRoutes && Array.isArray(analyticsData.recentRoutes)) {
+          dayPathfinding = analyticsData.recentRoutes.filter(r => {
+            const routeDate = new Date(r.timestamp);
+            return routeDate >= dayStart && routeDate <= dayEnd;
+          }).length;
+        }
+
+        usageTrendsData.push({
+          date: dateStr,
+          'Searches': daySearches,
+          'Pathfinding Routes': dayPathfinding
+        });
+      }
+
+      setUsageTrends(usageTrendsData);
     } catch (error) {
       console.error('❌ Error processing dashboard data:', error);
       setError(`Error processing data: ${error.message || 'Unknown error'}`);
