@@ -1380,8 +1380,11 @@ function PinsManagement() {
                       <div key={`neighbor-${neighborId}-${idx}`} className="neighbor-item">
                         <span>{neighbor?.title || `Pin ${neighborId}`} (ID: {neighbor?.id || neighborId})</span>
                         <button 
+                          type="button"
                           className="button button-danger button-small"
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
                             // Filter out the neighbor using string comparison
                             const newNeighbors = selectedPin.neighbors.filter(id => String(id) !== String(neighborId))
                             await handleUpdateNeighbors(selectedPin._id || selectedPin.id, newNeighbors)
@@ -1436,8 +1439,11 @@ function PinsManagement() {
                           </small>
                         </div>
                         <button 
+                          type="button"
                           className="button button-success button-small"
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
                             // Use pin.id (not _id) for pathfinding connections
                             const pinId = pin.id || pin._id
                             const newNeighbors = [...(selectedPin.neighbors || []), pinId]
