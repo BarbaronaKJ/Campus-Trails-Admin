@@ -46,17 +46,6 @@ function Dashboard() {
   useEffect(() => {
     fetchData();
     checkSystemHealth();
-    
-    // Auto-refresh every 30 seconds to show updated values
-    const refreshInterval = setInterval(() => {
-      console.log('🔄 Auto-refreshing dashboard data...');
-      fetchData();
-    }, 30000); // Refresh every 30 seconds
-    
-    return () => clearInterval(refreshInterval);
-    // Refresh system health every 30 seconds
-    const healthInterval = setInterval(checkSystemHealth, 30000);
-    return () => clearInterval(healthInterval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCampus]);
 
@@ -232,27 +221,43 @@ function Dashboard() {
             popularSearchesCount: analyticsData.popularSearches?.length || 0
           });
           
-          // Set popular routes and searches
-          if (analyticsData.popularRoutes) {
+          // Set popular routes and searches (from anonymous analytics)
+          // Note: User-specific data doesn't have individual queries/routes, only counts
+          // So we show anonymous popular items, but totals include both anonymous + user-specific
+          if (analyticsData.popularRoutes && Array.isArray(analyticsData.popularRoutes)) {
             setPopularRoutes(analyticsData.popularRoutes);
+            console.log('✅ Set popular routes:', analyticsData.popularRoutes.length);
+          } else {
+            setPopularRoutes([]);
           }
-          if (analyticsData.popularSearches) {
+          if (analyticsData.popularSearches && Array.isArray(analyticsData.popularSearches)) {
             setPopularSearches(analyticsData.popularSearches);
+            console.log('✅ Set popular searches:', analyticsData.popularSearches.length);
+          } else {
+            setPopularSearches([]);
           }
         } else if (analyticsRes && analyticsRes.data) {
           analyticsData = analyticsRes.data;
           console.log('✅ Analytics data (alternative structure):', {
             totalSearches: analyticsData.totalSearches,
-            totalPathfindingRoutes: analyticsData.totalPathfindingRoutes
+            totalPathfindingRoutes: analyticsData.totalPathfindingRoutes,
+            hasPopularRoutes: !!analyticsData.popularRoutes,
+            hasPopularSearches: !!analyticsData.popularSearches
           });
-          if (analyticsData.popularRoutes) {
+          if (analyticsData.popularRoutes && Array.isArray(analyticsData.popularRoutes)) {
             setPopularRoutes(analyticsData.popularRoutes);
+          } else {
+            setPopularRoutes([]);
           }
-          if (analyticsData.popularSearches) {
+          if (analyticsData.popularSearches && Array.isArray(analyticsData.popularSearches)) {
             setPopularSearches(analyticsData.popularSearches);
+          } else {
+            setPopularSearches([]);
           }
         } else {
           console.warn('⚠️ No analytics data in response:', analyticsRes);
+          setPopularRoutes([]);
+          setPopularSearches([]);
         }
         
         console.log('✅ Data fetched:', { 
@@ -813,80 +818,102 @@ function Dashboard() {
       </div>
 
       {/* Popular Routes */}
-      {popularRoutes.length > 0 && (
-        <div className="dashboard-section">
-          <h2>Most Popular Routes (Point A → Point B)</h2>
-          <div className="card" style={{ padding: '20px' }}>
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {popularRoutes.slice(0, 10).map((route, index) => (
-                <div key={index} style={{ 
-                  padding: '12px', 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '5px',
-                  border: '1px solid #e0e0e0'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <strong style={{ fontSize: '13px' }}>
-                        {route.startPoint.title || route.startPoint.pinId} → {route.endPoint.title || route.endPoint.pinId}
-                      </strong>
-                      {route.startPoint.description && (
-                        <p style={{ fontSize: '11px', color: '#666', margin: '4px 0 0 0' }}>
-                          {route.startPoint.description} → {route.endPoint.description}
-                        </p>
-                      )}
+      <div className="dashboard-section">
+        <h2>Most Popular Routes (Point A → Point B)</h2>
+        <div className="card" style={{ padding: '20px' }}>
+          {popularRoutes.length > 0 ? (
+            <>
+              <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
+                Showing routes from anonymous tracking. Total pathfinding routes: <strong>{localTracking.totalPathfinding}</strong> (includes {localTracking.userPathfinding} from logged-in users + {localTracking.anonymousPathfinding} anonymous)
+              </p>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {popularRoutes.slice(0, 10).map((route, index) => (
+                  <div key={index} style={{ 
+                    padding: '12px', 
+                    backgroundColor: '#f8f9fa', 
+                    borderRadius: '5px',
+                    border: '1px solid #e0e0e0'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <strong style={{ fontSize: '13px' }}>
+                          {route.startPoint?.title || route.startPoint?.pinId || 'Unknown'} → {route.endPoint?.title || route.endPoint?.pinId || 'Unknown'}
+                        </strong>
+                        {(route.startPoint?.description || route.endPoint?.description) && (
+                          <p style={{ fontSize: '11px', color: '#666', margin: '4px 0 0 0' }}>
+                            {route.startPoint?.description || route.startPoint?.pinId} → {route.endPoint?.description || route.endPoint?.pinId}
+                          </p>
+                        )}
+                      </div>
+                      <div style={{ 
+                        backgroundColor: CAMPUS_TRAILS_BLUE, 
+                        color: 'white', 
+                        padding: '4px 12px', 
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {route.count || 0}x
+                      </div>
                     </div>
-                    <div style={{ 
-                      backgroundColor: CAMPUS_TRAILS_BLUE, 
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+              No route data available yet. Routes will appear here as users navigate between points.
+              <br />
+              <small>Total pathfinding routes: <strong>{localTracking.totalPathfinding}</strong> ({localTracking.userPathfinding} logged-in + {localTracking.anonymousPathfinding} anonymous)</small>
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Popular Searches */}
+      <div className="dashboard-section">
+        <h2>Most Popular Searches</h2>
+        <div className="card" style={{ padding: '20px' }}>
+          {popularSearches.length > 0 ? (
+            <>
+              <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
+                Showing searches from anonymous tracking. Total searches: <strong>{localTracking.totalSearches}</strong> (includes {localTracking.userSearches} from logged-in users + {localTracking.anonymousSearches} anonymous)
+              </p>
+              <div style={{ display: 'grid', gap: '10px' }}>
+                {popularSearches.slice(0, 10).map((search, index) => (
+                  <div key={index} style={{ 
+                    padding: '12px', 
+                    backgroundColor: '#f8f9fa', 
+                    borderRadius: '5px',
+                    border: '1px solid #e0e0e0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontSize: '13px' }}>"{search.query || 'Unknown'}"</span>
+                    <span style={{ 
+                      backgroundColor: CAMPUS_TRAILS_GREEN, 
                       color: 'white', 
                       padding: '4px 12px', 
                       borderRadius: '12px',
                       fontSize: '12px',
                       fontWeight: 'bold'
                     }}>
-                      {route.count}x
-                    </div>
+                      {search.count || 0}x
+                    </span>
                   </div>
-                </div>
-              ))}
-            </div>
-          </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+              No search data available yet. Searches will appear here as users search for locations.
+              <br />
+              <small>Total searches: <strong>{localTracking.totalSearches}</strong> ({localTracking.userSearches} logged-in + {localTracking.anonymousSearches} anonymous)</small>
+            </p>
+          )}
         </div>
-      )}
-
-      {/* Popular Searches */}
-      {popularSearches.length > 0 && (
-        <div className="dashboard-section">
-          <h2>Most Popular Searches</h2>
-          <div className="card" style={{ padding: '20px' }}>
-            <div style={{ display: 'grid', gap: '10px' }}>
-              {popularSearches.slice(0, 10).map((search, index) => (
-                <div key={index} style={{ 
-                  padding: '12px', 
-                  backgroundColor: '#f8f9fa', 
-                  borderRadius: '5px',
-                  border: '1px solid #e0e0e0',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}>
-                  <span style={{ fontSize: '13px' }}>"{search.query}"</span>
-                  <span style={{ 
-                    backgroundColor: CAMPUS_TRAILS_GREEN, 
-                    color: 'white', 
-                    padding: '4px 12px', 
-                    borderRadius: '12px',
-                    fontSize: '12px',
-                    fontWeight: 'bold'
-                  }}>
-                    {search.count}x
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Feedback Trends */}
       <div className="dashboard-section">
