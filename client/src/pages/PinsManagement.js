@@ -1097,10 +1097,14 @@ function PinsManagement() {
                   <label className="label">Category *</label>
                   <select
                     className="input"
-                    value={editPinData.category}
+                    value={editPinData.category || 'Other'}
                     onChange={(e) => setEditPinData({...editPinData, category: e.target.value})}
                     required
                   >
+                    {/* Handle old category values by showing them if they don't match new categories */}
+                    {editPinData.category && !['Commercial Zone', 'Admin/Operation Zone', 'Academic Core Zone', 'Auxillary Services Zone', 'Dining', 'Comfort Rooms', 'Research Zones', 'Clinic', 'Parking', 'Security', 'Other'].includes(editPinData.category) && (
+                      <option value={editPinData.category}>(Old: {editPinData.category})</option>
+                    )}
                     <option value="Commercial Zone">Commercial Zone</option>
                     <option value="Admin/Operation Zone">Admin/Operation Zone</option>
                     <option value="Academic Core Zone">Academic Core Zone</option>
@@ -1113,6 +1117,11 @@ function PinsManagement() {
                     <option value="Security">Security</option>
                     <option value="Other">Other</option>
                   </select>
+                  {editPinData.category && !['Commercial Zone', 'Admin/Operation Zone', 'Academic Core Zone', 'Auxillary Services Zone', 'Dining', 'Comfort Rooms', 'Research Zones', 'Clinic', 'Parking', 'Security', 'Other'].includes(editPinData.category) && (
+                    <small style={{ color: '#ff9800', display: 'block', marginTop: '5px' }}>
+                      ⚠️ This pin has an old category. Please select a new standardized category.
+                    </small>
+                  )}
                 </div>
 
                 <div className="form-group">
