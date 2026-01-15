@@ -977,55 +977,74 @@ function PinsManagement() {
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="label">Categories * (Select multiple)</label>
-                  <div style={{ 
-                    border: '1px solid #ddd', 
-                    borderRadius: '4px', 
-                    padding: '10px', 
-                    maxHeight: '200px', 
-                    overflowY: 'auto',
-                    background: '#fff'
-                  }}>
-                    {availableCategories.map(category => {
-                      const isSelected = Array.isArray(newPinData.category) 
-                        ? newPinData.category.includes(category)
-                        : newPinData.category === category
-                      return (
-                        <label key={category} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              const currentCategories = Array.isArray(newPinData.category) 
-                                ? [...newPinData.category] 
-                                : (newPinData.category ? [newPinData.category] : [])
-                              
-                              if (e.target.checked) {
-                                if (!currentCategories.includes(category)) {
-                                  setNewPinData({...newPinData, category: [...currentCategories, category]})
-                                }
-                              } else {
-                                setNewPinData({...newPinData, category: currentCategories.filter(c => c !== category)})
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="label">Categories * (Select multiple)</label>
+                <div style={{ 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px', 
+                  padding: '12px', 
+                  maxHeight: '200px', 
+                  overflowY: 'auto',
+                  background: '#fff',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  {availableCategories.map(category => {
+                    const isSelected = Array.isArray(newPinData.category) 
+                      ? newPinData.category.includes(category)
+                      : newPinData.category === category
+                    return (
+                      <label 
+                        key={category} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          marginBottom: '10px', 
+                          cursor: 'pointer',
+                          width: '100%',
+                          padding: '4px 0'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const currentCategories = Array.isArray(newPinData.category) 
+                              ? [...newPinData.category] 
+                              : (newPinData.category ? [newPinData.category] : [])
+                            
+                            if (e.target.checked) {
+                              if (!currentCategories.includes(category)) {
+                                setNewPinData({...newPinData, category: [...currentCategories, category]})
                               }
-                            }}
-                            style={{ marginRight: '8px', cursor: 'pointer' }}
-                          />
-                          <span>{category}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                  {Array.isArray(newPinData.category) && newPinData.category.length === 0 && (
-                    <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
-                      ⚠️ Please select at least one category.
-                    </small>
-                  )}
-                  <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-                    💡 Tip: You can select multiple categories for each pin.
-                  </small>
+                            } else {
+                              setNewPinData({...newPinData, category: currentCategories.filter(c => c !== category)})
+                            }
+                          }}
+                          style={{ 
+                            marginRight: '10px', 
+                            cursor: 'pointer',
+                            width: '18px',
+                            height: '18px',
+                            flexShrink: 0
+                          }}
+                        />
+                        <span style={{ flex: 1, userSelect: 'none' }}>{category}</span>
+                      </label>
+                    )
+                  })}
                 </div>
+                {Array.isArray(newPinData.category) && newPinData.category.length === 0 && (
+                  <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
+                    ⚠️ Please select at least one category.
+                  </small>
+                )}
+                <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
+                  💡 Tip: You can select multiple categories for each pin.
+                </small>
+              </div>
+              
+              <div className="form-row">
 
                 <div className="form-group">
                   <label className="label">Campus *</label>
@@ -1189,58 +1208,77 @@ function PinsManagement() {
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="label">Categories * (Select multiple)</label>
-                  <div style={{ 
-                    border: '1px solid #ddd', 
-                    borderRadius: '4px', 
-                    padding: '10px', 
-                    maxHeight: '200px', 
-                    overflowY: 'auto',
-                    background: '#fff'
-                  }}>
-                    {availableCategories.map(category => {
-                      // Handle backward compatibility: convert string to array
-                      const currentCategories = Array.isArray(editPinData.category) 
-                        ? editPinData.category 
-                        : (editPinData.category ? [editPinData.category] : [])
-                      const isSelected = currentCategories.includes(category)
-                      
-                      return (
-                        <label key={category} style={{ display: 'flex', alignItems: 'center', marginBottom: '8px', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={(e) => {
-                              const currentCats = Array.isArray(editPinData.category) 
-                                ? [...editPinData.category] 
-                                : (editPinData.category ? [editPinData.category] : [])
-                              
-                              if (e.target.checked) {
-                                if (!currentCats.includes(category)) {
-                                  setEditPinData({...editPinData, category: [...currentCats, category]})
-                                }
-                              } else {
-                                setEditPinData({...editPinData, category: currentCats.filter(c => c !== category)})
+              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                <label className="label">Categories * (Select multiple)</label>
+                <div style={{ 
+                  border: '1px solid #ddd', 
+                  borderRadius: '4px', 
+                  padding: '12px', 
+                  maxHeight: '200px', 
+                  overflowY: 'auto',
+                  background: '#fff',
+                  width: '100%',
+                  boxSizing: 'border-box'
+                }}>
+                  {availableCategories.map(category => {
+                    // Handle backward compatibility: convert string to array
+                    const currentCategories = Array.isArray(editPinData.category) 
+                      ? editPinData.category 
+                      : (editPinData.category ? [editPinData.category] : [])
+                    const isSelected = currentCategories.includes(category)
+                    
+                    return (
+                      <label 
+                        key={category} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          marginBottom: '10px', 
+                          cursor: 'pointer',
+                          width: '100%',
+                          padding: '4px 0'
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={(e) => {
+                            const currentCats = Array.isArray(editPinData.category) 
+                              ? [...editPinData.category] 
+                              : (editPinData.category ? [editPinData.category] : [])
+                            
+                            if (e.target.checked) {
+                              if (!currentCats.includes(category)) {
+                                setEditPinData({...editPinData, category: [...currentCats, category]})
                               }
-                            }}
-                            style={{ marginRight: '8px', cursor: 'pointer' }}
-                          />
-                          <span>{category}</span>
-                        </label>
-                      )
-                    })}
-                  </div>
-                  {Array.isArray(editPinData.category) && editPinData.category.length === 0 && (
-                    <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
-                      ⚠️ Please select at least one category.
-                    </small>
-                  )}
-                  <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-                    💡 Tip: You can select multiple categories for each pin.
-                  </small>
+                            } else {
+                              setEditPinData({...editPinData, category: currentCats.filter(c => c !== category)})
+                            }
+                          }}
+                          style={{ 
+                            marginRight: '10px', 
+                            cursor: 'pointer',
+                            width: '18px',
+                            height: '18px',
+                            flexShrink: 0
+                          }}
+                        />
+                        <span style={{ flex: 1, userSelect: 'none' }}>{category}</span>
+                      </label>
+                    )
+                  })}
                 </div>
+                {Array.isArray(editPinData.category) && editPinData.category.length === 0 && (
+                  <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
+                    ⚠️ Please select at least one category.
+                  </small>
+                )}
+                <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
+                  💡 Tip: You can select multiple categories for each pin.
+                </small>
+              </div>
+              
+              <div className="form-row">
 
                 <div className="form-group">
                   <label className="label">Campus *</label>
