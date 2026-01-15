@@ -19,24 +19,38 @@ function UsersManagement() {
 
   const fetchCurrentUser = async () => {
     try {
-      const baseUrl = getApiBaseUrl();
       const token = localStorage.getItem('adminToken');
-      if (!token) return;
+      if (!token) {
+        console.log('⚠️ No admin token found');
+        return;
+      }
       
       // Decode token to get user ID
       const payload = JSON.parse(atob(token.split('.')[1]));
       const userId = payload.userId;
       
-      const response = await fetch(`${baseUrl}/api/admin/users/${userId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      console.log('🔍 Fetching current user:', userId);
+      const userRes = await usersAPI.getById(userId);
       
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentUser(data.user);
+      // Handle different response structures
+      let user = null;
+      if (userRes.data) {
+        user = userRes.data.user || userRes.data;
+      }
+      
+      if (user) {
+        console.log('✅ Current user fetched:', user.email, user.role);
+        setCurrentUser(user);
+      } else {
+        console.warn('⚠️ No user data in response');
       }
     } catch (error) {
-      console.error('Error fetching current user:', error);
+      console.error('❌ Error fetching current user:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
     }
   };
 
@@ -45,21 +59,50 @@ function UsersManagement() {
       setLoading(true);
       setError('');
       
+      console.log('🔍 Fetching users...');
+      
       // Fetch users (students)
       const usersRes = await usersAPI.getAll({ limit: 1000 });
-      const allUsers = usersRes.data?.users || usersRes.data || [];
+      console.log('📦 Users API response:', usersRes);
+      
+      // Handle different response structures
+      let allUsers = [];
+      if (usersRes.data) {
+        if (usersRes.data.users) {
+          allUsers = usersRes.data.users;
+        } else if (Array.isArray(usersRes.data)) {
+          allUsers = usersRes.data;
+        } else if (usersRes.data.data && Array.isArray(usersRes.data.data)) {
+          allUsers = usersRes.data.data;
+        }
+      } else if (Array.isArray(usersRes)) {
+        allUsers = usersRes;
+      }
+      
+      console.log('👥 All users fetched:', allUsers.length);
       
       // Separate users, admins, and super admins
       const students = allUsers.filter(u => u.role === 'student' || !u.role);
       const adminUsers = allUsers.filter(u => u.role === 'admin');
       const superAdminUsers = allUsers.filter(u => u.role === 'super_admin');
       
+      console.log('📊 Users breakdown:', {
+        students: students.length,
+        admins: adminUsers.length,
+        superAdmins: superAdminUsers.length
+      });
+      
       setUsers(students);
       setAdmins(adminUsers);
       setSuperAdmins(superAdminUsers);
     } catch (error) {
-      console.error('Error fetching users:', error);
-      setError('Failed to fetch users');
+      console.error('❌ Error fetching users:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setError(`Failed to fetch users: ${error.response?.data?.message || error.message || 'Unknown error'}`);
     } finally {
       setLoading(false);
     }
@@ -76,27 +119,20 @@ function UsersManagement() {
     if (!window.confirm(`Are you sure you want to delete this ${userType}?`)) return;
     
     try {
-      const baseUrl = getApiBaseUrl();
-      const token = localStorage.getItem('adminToken');
+      console.log('🗑️ Deleting user:', id);
+      await usersAPI.delete(id);
       
-      // Delete from users collection (all roles are in users collection)
-      const endpoint = `${baseUrl}/api/admin/users/${id}`;
-      
-      const response = await fetch(endpoint, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete');
-      }
-
       setSuccess(`${userType.charAt(0).toUpperCase() + userType.slice(1)} deleted successfully`);
       setTimeout(() => setSuccess(''), 3000);
       fetchData();
     } catch (error) {
-      console.error('Error deleting:', error);
-      setError(`Failed to delete ${userType}`);
+      console.error('❌ Error deleting user:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setError(`Failed to delete ${userType}: ${error.response?.data?.message || error.message || 'Unknown error'}`);
       setTimeout(() => setError(''), 5000);
     }
   };
@@ -117,29 +153,21 @@ function UsersManagement() {
     }
     
     try {
-      const baseUrl = getApiBaseUrl();
-      const token = localStorage.getItem('adminToken');
+      console.log('🔄 Updating user role:', { id, currentRole, newRole });
+      await usersAPI.update(id, { role: newRole });
       
-      const response = await fetch(`${baseUrl}/api/admin/users/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ role: newRole })
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update role');
-      }
-
       setSuccess('Role updated successfully');
       setTimeout(() => setSuccess(''), 3000);
       fetchData();
       fetchCurrentUser(); // Refresh current user in case role changed
     } catch (error) {
-      console.error('Error updating role:', error);
-      setError('Failed to update role');
+      console.error('❌ Error updating role:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      setError(`Failed to update role: ${error.response?.data?.message || error.message || 'Unknown error'}`);
       setTimeout(() => setError(''), 5000);
     }
   };
