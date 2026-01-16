@@ -29,7 +29,6 @@ function Dashboard() {
     express: 'checking'
   });
   const [loading, setLoading] = useState(true);
-  const [sidePanelOpen, setSidePanelOpen] = useState(false);
   const [selectedMetric, setSelectedMetric] = useState(null);
   const [detailedData, setDetailedData] = useState(null);
   const [detailedLoading, setDetailedLoading] = useState(false);
@@ -68,14 +67,14 @@ function Dashboard() {
   };
 
   const handleCardClick = (metricType) => {
-    setSelectedMetric(metricType);
-    setSidePanelOpen(true);
-  };
-
-  const closeSidePanel = () => {
-    setSidePanelOpen(false);
-    setSelectedMetric(null);
-    setDetailedData(null);
+    if (selectedMetric === metricType) {
+      // If clicking the same card, close the panel
+      setSelectedMetric(null);
+      setDetailedData(null);
+    } else {
+      // Open panel for new metric
+      setSelectedMetric(metricType);
+    }
   };
 
   useEffect(() => {
@@ -100,23 +99,31 @@ function Dashboard() {
           }).then(r => r.json());
           const pins = pinsRes.pins || pinsRes.data || [];
           
-          // Group by category/type
-          const pinsByType = {};
-          pins.forEach(pin => {
-            const type = pin.pinType || 'Uncategorized';
-            pinsByType[type] = (pinsByType[type] || 0) + 1;
-          });
-
-          // Group by campus
+          // Organize pins by campus, then by visible/invisible
           const pinsByCampus = {};
+          
           pins.forEach(pin => {
             const campusName = pin.campusId?.name || 'Unknown Campus';
-            pinsByCampus[campusName] = (pinsByCampus[campusName] || 0) + 1;
+            const campusId = pin.campusId?._id || pin.campusId || 'unknown';
+            
+            if (!pinsByCampus[campusName]) {
+              pinsByCampus[campusName] = {
+                campusId: campusId,
+                visible: [], // Buildings/Facilities
+                invisible: [] // Waypoints
+              };
+            }
+            
+            // Separate visible (buildings/facilities) from invisible (waypoints)
+            if (pin.visible === false) {
+              pinsByCampus[campusName].invisible.push(pin);
+            } else {
+              pinsByCampus[campusName].visible.push(pin);
+            }
           });
 
           setDetailedData({
             total: pins.length,
-            byType: pinsByType,
             byCampus: pinsByCampus,
             visible: pins.filter(p => p.visible !== false).length,
             invisible: pins.filter(p => p.visible === false).length
@@ -352,10 +359,12 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    if (sidePanelOpen && selectedMetric) {
+    if (selectedMetric) {
       fetchDetailedData(selectedMetric);
+    } else {
+      setDetailedData(null);
     }
-  }, [sidePanelOpen, selectedMetric, selectedCampus]);
+  }, [selectedMetric, selectedCampus]);
 
   const fetchData = async () => {
     try {
@@ -519,7 +528,7 @@ function Dashboard() {
   const renderDetailedContent = () => {
     if (detailedLoading) {
       return (
-        <div className="side-panel-loading">
+        <div className="detail-panel-loading">
           <div className="spinner"></div>
           <p>Loading detailed metrics...</p>
         </div>
@@ -541,40 +550,65 @@ function Dashboard() {
                 <strong>{detailedData.total}</strong>
               </div>
               <div className="metric-row">
-                <span>Visible:</span>
+                <span>Visible (Buildings/Facilities):</span>
                 <strong>{detailedData.visible}</strong>
               </div>
               <div className="metric-row">
-                <span>Invisible:</span>
+                <span>Invisible (Waypoints):</span>
                 <strong>{detailedData.invisible}</strong>
               </div>
             </div>
 
-            {Object.keys(detailedData.byType).length > 0 && (
-              <div className="metric-section">
-                <h3>By Type</h3>
-                {Object.entries(detailedData.byType)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([type, count]) => (
-                    <div key={type} className="metric-row">
-                      <span>{type}:</span>
-                      <strong>{count}</strong>
-                    </div>
-                  ))}
-              </div>
-            )}
-
             {Object.keys(detailedData.byCampus).length > 0 && (
-              <div className="metric-section">
+              <div className="pins-by-campus">
                 <h3>By Campus</h3>
-                {Object.entries(detailedData.byCampus)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([campus, count]) => (
-                    <div key={campus} className="metric-row">
-                      <span>{campus}:</span>
-                      <strong>{count}</strong>
+                {Object.entries(detailedData.byCampus).map(([campusName, campusData]) => (
+                  <div key={campusName} className="campus-pins-section">
+                    <h4 className="campus-name">{campusName}</h4>
+                    
+                    {/* Visible Pins - Buildings/Facilities */}
+                    <div className="pin-category">
+                      <h5 className="category-title">
+                        Visible Pins - Buildings/Facilities 
+                        <span className="pin-count">({campusData.visible.length})</span>
+                      </h5>
+                      {campusData.visible.length > 0 ? (
+                        <ul className="pin-list">
+                          {campusData.visible.map(pin => (
+                            <li key={pin._id} className="pin-item">
+                              <strong>{pin.title || 'Untitled'}</strong>
+                              {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                              {pin.pinType && <span className="pin-type">{pin.pinType}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="no-pins">No visible pins</p>
+                      )}
                     </div>
-                  ))}
+
+                    {/* Invisible Pins - Waypoints */}
+                    <div className="pin-category">
+                      <h5 className="category-title">
+                        Invisible Pins - Waypoints 
+                        <span className="pin-count">({campusData.invisible.length})</span>
+                      </h5>
+                      {campusData.invisible.length > 0 ? (
+                        <ul className="pin-list">
+                          {campusData.invisible.map(pin => (
+                            <li key={pin._id} className="pin-item">
+                              <strong>{pin.title || 'Untitled Waypoint'}</strong>
+                              {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                              {pin.pinType && <span className="pin-type">{pin.pinType}</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="no-pins">No invisible pins</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -898,20 +932,17 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Side Panel */}
-      {sidePanelOpen && (
-        <>
-          <div className="side-panel-overlay" onClick={closeSidePanel}></div>
-          <div className="side-panel">
-            <div className="side-panel-header">
-              <h2>{getMetricTitle(selectedMetric)}</h2>
-              <button className="side-panel-close" onClick={closeSidePanel}>×</button>
-            </div>
-            <div className="side-panel-content">
-              {renderDetailedContent()}
-            </div>
+      {/* Detail Panel */}
+      {selectedMetric && (
+        <div className="dashboard-section detail-panel">
+          <div className="detail-panel-header">
+            <h2>{getMetricTitle(selectedMetric)}</h2>
+            <button className="detail-panel-close" onClick={() => handleCardClick(selectedMetric)}>×</button>
           </div>
-        </>
+          <div className="detail-panel-content">
+            {renderDetailedContent()}
+          </div>
+        </div>
       )}
     </div>
   );
