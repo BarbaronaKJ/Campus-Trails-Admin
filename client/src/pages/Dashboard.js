@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI, analyticsAPI } from '../services/api';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import './Dashboard.css';
 
@@ -20,34 +20,24 @@ function Dashboard() {
     totalPathfinding: 0,
     totalSavedPins: 0,
     activeUsers7Days: 0,
-    userSearches: 0,
-    anonymousSearches: 0,
-    userPathfinding: 0,
-    anonymousPathfinding: 0,
     avgSearchesPerUser: 0,
     avgPathfindingPerUser: 0,
     avgSavedPinsPerUser: 0
   });
-  const [popularRoutes, setPopularRoutes] = useState([]);
-  const [popularSearches, setPopularSearches] = useState([]);
-  const [usageTrends, setUsageTrends] = useState([]); // For charts
   const [systemHealth, setSystemHealth] = useState({
     mongodb: 'checking',
     express: 'checking'
   });
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [sidePanelOpen, setSidePanelOpen] = useState(false);
+  const [selectedMetric, setSelectedMetric] = useState(null);
+  const [detailedData, setDetailedData] = useState(null);
+  const [detailedLoading, setDetailedLoading] = useState(false);
 
   const CAMPUS_TRAILS_GREEN = '#28a745';
   const CAMPUS_TRAILS_BLUE = '#007bff';
   const CAMPUS_TRAILS_RED = '#dc3545';
   const CAMPUS_TRAILS_YELLOW = '#ffc107';
-
-  useEffect(() => {
-    fetchData();
-    checkSystemHealth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCampus]);
 
   const checkSystemHealth = async () => {
     try {
@@ -77,213 +67,322 @@ function Dashboard() {
     }
   };
 
+  const handleCardClick = (metricType) => {
+    setSelectedMetric(metricType);
+    setSidePanelOpen(true);
+  };
+
+  const closeSidePanel = () => {
+    setSidePanelOpen(false);
+    setSelectedMetric(null);
+    setDetailedData(null);
+  };
+
+  useEffect(() => {
+    fetchData();
+    checkSystemHealth();
+    // Refresh system health every 30 seconds
+    const healthInterval = setInterval(checkSystemHealth, 30000);
+    return () => clearInterval(healthInterval);
+  }, [selectedCampus]);
+
+  const fetchDetailedData = async (metricType) => {
+    try {
+      setDetailedLoading(true);
+      const baseUrl = getApiBaseUrl();
+      const token = localStorage.getItem('adminToken');
+      const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
+
+      switch (metricType) {
+        case 'pins':
+          const pinsRes = await fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json());
+          const pins = pinsRes.pins || pinsRes.data || [];
+          
+          // Group by category/type
+          const pinsByType = {};
+          pins.forEach(pin => {
+            const type = pin.pinType || 'Uncategorized';
+            pinsByType[type] = (pinsByType[type] || 0) + 1;
+          });
+
+          // Group by campus
+          const pinsByCampus = {};
+          pins.forEach(pin => {
+            const campusName = pin.campusId?.name || 'Unknown Campus';
+            pinsByCampus[campusName] = (pinsByCampus[campusName] || 0) + 1;
+          });
+
+          setDetailedData({
+            total: pins.length,
+            byType: pinsByType,
+            byCampus: pinsByCampus,
+            visible: pins.filter(p => p.visible !== false).length,
+            invisible: pins.filter(p => p.visible === false).length
+          });
+          break;
+
+        case 'users':
+          const usersRes = await usersAPI.getAll({ limit: 10000 });
+          const users = usersRes.data?.users || usersRes.data || [];
+
+          // Group by registration date (last 30 days)
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          const recentUsers = users.filter(u => {
+            const created = new Date(u.createdAt || u.dateJoined || 0);
+            return created >= thirtyDaysAgo;
+          });
+
+          // Active users breakdown
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const activeUsers = users.filter(u => {
+            if (!u.activity?.lastActiveDate) return false;
+            const lastActive = new Date(u.activity.lastActiveDate);
+            return lastActive >= sevenDaysAgo;
+          });
+
+          setDetailedData({
+            total: users.length,
+            recentUsers: recentUsers.length,
+            activeUsers: activeUsers.length,
+            usersWithActivity: users.filter(u => u.activity).length
+          });
+          break;
+
+        case 'campuses':
+          const campusesRes = await campusesAPI.getAll();
+          const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
+
+          setDetailedData({
+            total: campusesData.length,
+            campuses: campusesData.map(c => ({
+              name: c.name,
+              id: c._id,
+              location: c.location
+            }))
+          });
+          break;
+
+        case 'feedbacks':
+          const [feedbacksUsersRes, suggestionsRes] = await Promise.all([
+            usersAPI.getAll({ limit: 10000 }),
+            suggestionsAndFeedbacksAPI.getAll({ limit: 1000 })
+          ]);
+          const allUsers = feedbacksUsersRes.data?.users || feedbacksUsersRes.data || [];
+          const suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
+
+          const allFeedbackHistory = [];
+          allUsers.forEach(user => {
+            if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
+              user.activity.feedbackHistory.forEach(feedback => {
+                allFeedbackHistory.push({
+                  ...feedback,
+                  userId: user._id,
+                  date: feedback.date || feedback.createdAt
+                });
+              });
+            }
+          });
+
+          // Group by type
+          const feedbacksByType = {};
+          allFeedbackHistory.forEach(f => {
+            const type = f.type || f.feedbackType || 'General';
+            feedbacksByType[type] = (feedbacksByType[type] || 0) + 1;
+          });
+
+          // Recent feedbacks (last 7 days)
+          const sevenDaysAgoFeedback = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const recentFeedbacks = allFeedbackHistory.filter(f => {
+            const date = new Date(f.date || f.createdAt || 0);
+            return date >= sevenDaysAgoFeedback;
+          });
+
+          setDetailedData({
+            total: allFeedbackHistory.length,
+            byType: feedbacksByType,
+            recent: recentFeedbacks.length,
+            appFeedback: suggestions.length
+          });
+          break;
+
+        case 'appFeedback':
+          const appFeedbackRes = await suggestionsAndFeedbacksAPI.getAll({ limit: 1000 });
+          const appFeedbacks = appFeedbackRes.data?.suggestions || appFeedbackRes.data || [];
+
+          // Group by status
+          const feedbacksByStatus = {};
+          appFeedbacks.forEach(f => {
+            const status = f.status || 'Pending';
+            feedbacksByStatus[status] = (feedbacksByStatus[status] || 0) + 1;
+          });
+
+          // Recent feedbacks
+          const sevenDaysAgoApp = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const recentAppFeedbacks = appFeedbacks.filter(f => {
+            const date = new Date(f.createdAt || 0);
+            return date >= sevenDaysAgoApp;
+          });
+
+          setDetailedData({
+            total: appFeedbacks.length,
+            byStatus: feedbacksByStatus,
+            recent: recentAppFeedbacks.length
+          });
+          break;
+
+        case 'searches':
+          const searchesUsersRes = await usersAPI.getAll({ limit: 10000 });
+          const searchesUsers = searchesUsersRes.data?.users || searchesUsersRes.data || [];
+
+          let totalSearches = 0;
+          const searchesByUser = [];
+          searchesUsers.forEach(user => {
+            const count = user.activity?.searchCount || 0;
+            if (count > 0) {
+              totalSearches += count;
+              searchesByUser.push({
+                userId: user._id,
+                email: user.email,
+                count
+              });
+            }
+          });
+          searchesByUser.sort((a, b) => b.count - a.count);
+
+          setDetailedData({
+            total: totalSearches,
+            usersWithSearches: searchesByUser.length,
+            topUsers: searchesByUser.slice(0, 10),
+            average: searchesUsers.length > 0 ? (totalSearches / searchesUsers.length).toFixed(1) : 0
+          });
+          break;
+
+        case 'pathfinding':
+          const pathfindingUsersRes = await usersAPI.getAll({ limit: 10000 });
+          const pathfindingUsers = pathfindingUsersRes.data?.users || pathfindingUsersRes.data || [];
+
+          let totalPathfinding = 0;
+          const pathfindingByUser = [];
+          pathfindingUsers.forEach(user => {
+            const count = user.activity?.pathfindingCount || 0;
+            if (count > 0) {
+              totalPathfinding += count;
+              pathfindingByUser.push({
+                userId: user._id,
+                email: user.email,
+                count
+              });
+            }
+          });
+          pathfindingByUser.sort((a, b) => b.count - a.count);
+
+          setDetailedData({
+            total: totalPathfinding,
+            usersWithPathfinding: pathfindingByUser.length,
+            topUsers: pathfindingByUser.slice(0, 10),
+            average: pathfindingUsers.length > 0 ? (totalPathfinding / pathfindingUsers.length).toFixed(1) : 0
+          });
+          break;
+
+        case 'savedPins':
+          const savedPinsUsersRes = await usersAPI.getAll({ limit: 10000 });
+          const savedPinsUsers = savedPinsUsersRes.data?.users || savedPinsUsersRes.data || [];
+
+          let totalSavedPins = 0;
+          const savedPinsByUser = [];
+          savedPinsUsers.forEach(user => {
+            const count = user.activity?.savedPins?.length || 0;
+            if (count > 0) {
+              totalSavedPins += count;
+              savedPinsByUser.push({
+                userId: user._id,
+                email: user.email,
+                count
+              });
+            }
+          });
+          savedPinsByUser.sort((a, b) => b.count - a.count);
+
+          setDetailedData({
+            total: totalSavedPins,
+            usersWithSavedPins: savedPinsByUser.length,
+            topUsers: savedPinsByUser.slice(0, 10),
+            average: savedPinsUsers.length > 0 ? (totalSavedPins / savedPinsUsers.length).toFixed(1) : 0
+          });
+          break;
+
+        case 'activeUsers':
+          const activeUsersRes = await usersAPI.getAll({ limit: 10000 });
+          const activeUsersData = activeUsersRes.data?.users || activeUsersRes.data || [];
+
+          const sevenDaysAgoActive = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          const thirtyDaysAgoActive = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+          const active7Days = activeUsersData.filter(u => {
+            if (!u.activity?.lastActiveDate) return false;
+            const lastActive = new Date(u.activity.lastActiveDate);
+            return lastActive >= sevenDaysAgoActive;
+          });
+
+          const active30Days = activeUsersData.filter(u => {
+            if (!u.activity?.lastActiveDate) return false;
+            const lastActive = new Date(u.activity.lastActiveDate);
+            return lastActive >= thirtyDaysAgoActive;
+          });
+
+          setDetailedData({
+            active7Days: active7Days.length,
+            active30Days: active30Days.length,
+            totalUsers: activeUsersData.length,
+            inactiveUsers: activeUsersData.length - active30Days.length
+          });
+          break;
+
+        default:
+          setDetailedData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching detailed data:', error);
+      setDetailedData(null);
+    } finally {
+      setDetailedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (sidePanelOpen && selectedMetric) {
+      fetchDetailedData(selectedMetric);
+    }
+  }, [sidePanelOpen, selectedMetric, selectedCampus]);
+
   const fetchData = async () => {
     try {
       setLoading(true);
-      setError('');
       const baseUrl = getApiBaseUrl();
       const token = localStorage.getItem('adminToken');
       
-      console.log('🔍 Dashboard: Fetching data...');
-      console.log('🔍 API Base URL:', baseUrl);
-      console.log('🔍 Has token:', !!token);
-      
-      if (!token) {
-        setError('Not authenticated. Please log in again.');
-        setLoading(false);
-        return;
-      }
-
       // Fetch campuses
-      let campusesData = [];
-      try {
-        const campusesRes = await campusesAPI.getAll();
-        // Handle different response structures
-        if (campusesRes.data?.campuses) {
-          campusesData = campusesRes.data.campuses;
-        } else if (campusesRes.data && Array.isArray(campusesRes.data)) {
-          campusesData = campusesRes.data;
-        } else if (Array.isArray(campusesRes)) {
-          campusesData = campusesRes;
-        }
-        setCampuses(campusesData);
-        console.log('✅ Campuses fetched:', campusesData.length, campusesData);
-      } catch (err) {
-        console.error('❌ Error fetching campuses:', err);
-        setError(`Error fetching campuses: ${err.message || 'Unknown error'}`);
-      }
+      const campusesRes = await campusesAPI.getAll();
+      const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
+      setCampuses(campusesData);
 
-      // Build query params - don't filter by campus for dashboard stats
-      // const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
+      // Build query params
+      const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
 
       // Fetch all data
-      let pins = [];
-      let users = [];
-      let suggestions = [];
-      let analyticsData = null;
-      
-      try {
-        const [pinsRes, usersRes, suggestionsRes, analyticsRes] = await Promise.all([
-          fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }).then(async r => {
-            if (!r.ok) {
-              const errorText = await r.text();
-              throw new Error(`Pins API error (${r.status}): ${errorText}`);
-            }
-            return r.json();
-          }),
-          usersAPI.getAll({ limit: 10000 }).catch(err => {
-            console.error('❌ Error fetching users:', err);
-            throw new Error(`Users API error: ${err.message || 'Unknown error'}`);
-          }),
-          suggestionsAndFeedbacksAPI.getAll({ limit: 1000 }).catch(err => {
-            console.error('❌ Error fetching suggestions:', err);
-            console.error('❌ Error details:', {
-              message: err.message,
-              status: err.response?.status,
-              statusText: err.response?.statusText,
-              url: err.config?.url,
-              response: err.response?.data
-            });
-            
-            // If 404, log a helpful message
-            if (err.response?.status === 404) {
-              console.warn('⚠️ Route /api/admin/suggestions_and_feedbacks not found. The backend needs to be redeployed with this route.');
-            }
-            
-            // Don't throw - suggestions are optional for dashboard
-            return { data: { suggestions: [] } };
-          }),
-          analyticsAPI.getStats({ days: 30 }).catch(err => {
-            console.error('❌ Error fetching analytics:', err);
-            console.warn('⚠️ Analytics API not available (404). Dashboard will work without analytics data.');
-            // Don't throw - analytics are optional, return null to indicate no data
-            return { data: null };
-          })
-        ]);
+      const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
+        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.json()),
+        usersAPI.getAll({ limit: 10000 }),
+        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 })
+      ]);
 
-        // Handle pins response (direct fetch, returns JSON directly)
-        // API returns: { success: true, pins: [...], pagination: {...} }
-        if (pinsRes && pinsRes.success && pinsRes.pins) {
-          pins = pinsRes.pins;
-        } else if (pinsRes && pinsRes.pins) {
-          pins = pinsRes.pins;
-        } else if (pinsRes && pinsRes.data && Array.isArray(pinsRes.data)) {
-          pins = pinsRes.data;
-        } else if (Array.isArray(pinsRes)) {
-          pins = pinsRes;
-        } else {
-          pins = [];
-        }
-
-        // Handle users response (axios wraps in .data)
-        // API returns: { success: true, users: [...], pagination: {...} }
-        // Axios wraps: usersRes.data = { success: true, users: [...] }
-        if (usersRes && usersRes.data) {
-          if (usersRes.data.users) {
-            users = usersRes.data.users;
-          } else if (usersRes.data.success && usersRes.data.users) {
-            users = usersRes.data.users;
-          } else if (Array.isArray(usersRes.data)) {
-            users = usersRes.data;
-          }
-        } else if (Array.isArray(usersRes)) {
-          users = usersRes;
-        } else {
-          users = [];
-        }
-
-        // Handle suggestions response (same as FeedbacksManagement)
-        // API returns: { success: true, suggestions: [...], pagination: {...} }
-        // Axios wraps it in .data, so: suggestionsRes.data = { success: true, suggestions: [...] }
-        if (suggestionsRes && suggestionsRes.data) {
-          if (suggestionsRes.data.suggestions) {
-            suggestions = suggestionsRes.data.suggestions;
-          } else if (Array.isArray(suggestionsRes.data)) {
-            suggestions = suggestionsRes.data;
-          }
-        } else if (Array.isArray(suggestionsRes)) {
-          suggestions = suggestionsRes;
-        } else {
-          suggestions = [];
-        }
-
-        // Handle analytics response
-        if (analyticsRes && analyticsRes.data && analyticsRes.data.data) {
-          analyticsData = analyticsRes.data.data;
-          console.log('✅ Analytics data fetched:', {
-            totalSearches: analyticsData.totalSearches,
-            totalPathfindingRoutes: analyticsData.totalPathfindingRoutes,
-            recentSearchesCount: analyticsData.recentSearches?.length || 0,
-            recentRoutesCount: analyticsData.recentRoutes?.length || 0,
-            popularRoutesCount: analyticsData.popularRoutes?.length || 0,
-            popularSearchesCount: analyticsData.popularSearches?.length || 0
-          });
-          
-          // Set popular routes and searches (from anonymous analytics)
-          // Note: User-specific data doesn't have individual queries/routes, only counts
-          // So we show anonymous popular items, but totals include both anonymous + user-specific
-          if (analyticsData.popularRoutes && Array.isArray(analyticsData.popularRoutes)) {
-            setPopularRoutes(analyticsData.popularRoutes);
-            console.log('✅ Set popular routes:', analyticsData.popularRoutes.length);
-          } else {
-            setPopularRoutes([]);
-          }
-          if (analyticsData.popularSearches && Array.isArray(analyticsData.popularSearches)) {
-            setPopularSearches(analyticsData.popularSearches);
-            console.log('✅ Set popular searches:', analyticsData.popularSearches.length);
-          } else {
-            setPopularSearches([]);
-          }
-        } else if (analyticsRes && analyticsRes.data) {
-          analyticsData = analyticsRes.data;
-          console.log('✅ Analytics data (alternative structure):', {
-            totalSearches: analyticsData.totalSearches,
-            totalPathfindingRoutes: analyticsData.totalPathfindingRoutes,
-            hasPopularRoutes: !!analyticsData.popularRoutes,
-            hasPopularSearches: !!analyticsData.popularSearches
-          });
-          if (analyticsData.popularRoutes && Array.isArray(analyticsData.popularRoutes)) {
-            setPopularRoutes(analyticsData.popularRoutes);
-          } else {
-            setPopularRoutes([]);
-          }
-          if (analyticsData.popularSearches && Array.isArray(analyticsData.popularSearches)) {
-            setPopularSearches(analyticsData.popularSearches);
-          } else {
-            setPopularSearches([]);
-          }
-        } else {
-          console.warn('⚠️ No analytics data in response:', analyticsRes);
-          setPopularRoutes([]);
-          setPopularSearches([]);
-        }
-        
-        console.log('✅ Data fetched:', { 
-          pins: pins.length, 
-          users: users.length, 
-          suggestions: suggestions.length,
-          pinsSample: pins.slice(0, 2),
-          usersSample: users.slice(0, 2),
-          suggestionsSample: suggestions.slice(0, 2),
-          pinsResStructure: Object.keys(pinsRes || {}),
-          usersResStructure: usersRes?.data ? Object.keys(usersRes.data) : 'no data',
-          suggestionsResStructure: suggestionsRes?.data ? Object.keys(suggestionsRes.data) : 'no data'
-        });
-        
-        // Warn if suggestions failed but don't block dashboard
-        if (suggestions.length === 0 && (!suggestionsRes || !suggestionsRes.data || !suggestionsRes.data.suggestions)) {
-          console.warn('⚠️ No suggestions data available. This may be due to a 404 error if the route is not deployed.');
-        }
-      } catch (err) {
-        console.error('❌ Error fetching dashboard data:', err);
-        setError(`Error fetching data: ${err.message || 'Unknown error'}. Check console for details.`);
-        // Set empty arrays to prevent crashes
-        pins = [];
-        users = [];
-        suggestions = [];
-      }
+      const pins = pinsRes.pins || pinsRes.data || [];
+      const users = usersRes.data?.users || usersRes.data || [];
+      const suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
 
       // Extract all feedbackHistory from users for facility reports
       const allFeedbackHistory = [];
@@ -308,9 +407,9 @@ function Dashboard() {
         suggestionsAndFeedbacks: suggestions.length
       });
 
-      // Calculate local tracking data (user-specific)
-      let userSearches = 0;
-      let userPathfinding = 0;
+      // Calculate local tracking data
+      let totalSearches = 0;
+      let totalPathfinding = 0;
       let totalSavedPins = 0;
       const activeUsersSet = new Set();
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -321,14 +420,14 @@ function Dashboard() {
           totalSavedPins += user.activity.savedPins.length;
         }
 
-        // Count searches (user-specific)
+        // Count searches
         if (user.activity?.searchCount) {
-          userSearches += user.activity.searchCount || 0;
+          totalSearches += user.activity.searchCount || 0;
         }
 
-        // Count pathfinding (user-specific)
+        // Count pathfinding
         if (user.activity?.pathfindingCount) {
-          userPathfinding += user.activity.pathfindingCount || 0;
+          totalPathfinding += user.activity.pathfindingCount || 0;
         }
 
         // Track active users (last 7 days)
@@ -340,78 +439,13 @@ function Dashboard() {
         }
       });
 
-      // Combine user-specific and anonymous analytics
-      // Ensure analyticsData exists before accessing properties
-      const analyticsDataSafe = analyticsData || {};
-      
-      // Handle different response structures
-      let anonymousSearches = 0;
-      let anonymousPathfinding = 0;
-      
-      if (analyticsDataSafe.totalSearches !== undefined) {
-        anonymousSearches = analyticsDataSafe.totalSearches;
-      } else if (analyticsDataSafe.recentSearchesCount !== undefined) {
-        // Fallback to recent count if total not available
-        anonymousSearches = analyticsDataSafe.recentSearchesCount;
-      }
-      
-      // Use totalPathfindingRoutes (all-time total) for anonymous pathfinding count
-      // This represents all pathfinding routes ever tracked anonymously
-      if (analyticsDataSafe.totalPathfindingRoutes !== undefined) {
-        anonymousPathfinding = analyticsDataSafe.totalPathfindingRoutes;
-      } else if (analyticsDataSafe.recentRoutesCount !== undefined) {
-        // Fallback to recent count if total not available (for last 30 days)
-        anonymousPathfinding = analyticsDataSafe.recentRoutesCount;
-      } else if (analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
-        // Count from recent routes array if available
-        anonymousPathfinding = analyticsDataSafe.recentRoutes.length;
-      }
-      
-      // Log detailed pathfinding data for debugging
-      console.log('🔍 Pathfinding data breakdown:', {
-        analyticsDataSafe: {
-          totalPathfindingRoutes: analyticsDataSafe.totalPathfindingRoutes,
-          recentRoutesCount: analyticsDataSafe.recentRoutesCount,
-          recentRoutesLength: analyticsDataSafe.recentRoutes?.length,
-          hasRecentRoutes: !!analyticsDataSafe.recentRoutes
-        },
-        calculatedAnonymousPathfinding: anonymousPathfinding,
-        userPathfinding,
-        willBeTotal: userPathfinding + anonymousPathfinding
-      });
-      const totalSearches = userSearches + anonymousSearches;
-      const totalPathfinding = userPathfinding + anonymousPathfinding;
-      
-      console.log('📊 Pathfinding tracking summary:', {
-        userPathfinding,
-        anonymousPathfinding,
-        totalPathfinding,
-        analyticsDataAvailable: !!analyticsData,
-        analyticsTotalRoutes: analyticsDataSafe.totalPathfindingRoutes,
-        analyticsRecentRoutesCount: analyticsDataSafe.recentRoutesCount,
-        analyticsRecentRoutesLength: analyticsDataSafe.recentRoutes?.length
-      });
-      
-      // Additional debug: Show what will be displayed
-      console.log('📈 Dashboard will display:', {
-        'Pathfinding Routes card': totalPathfinding,
-        breakdown: {
-          'From logged-in users': userPathfinding,
-          'From anonymous tracking': anonymousPathfinding
-        }
-      });
-
       setLocalTracking({
         totalSearches,
         totalPathfinding,
         totalSavedPins,
         activeUsers7Days: activeUsersSet.size,
-        userSearches, // User-specific searches
-        anonymousSearches, // Anonymous searches
-        userPathfinding, // User-specific pathfinding
-        anonymousPathfinding, // Anonymous pathfinding
-        avgSearchesPerUser: users.length > 0 ? (userSearches / users.length).toFixed(1) : 0,
-        avgPathfindingPerUser: users.length > 0 ? (userPathfinding / users.length).toFixed(1) : 0,
+        avgSearchesPerUser: users.length > 0 ? (totalSearches / users.length).toFixed(1) : 0,
+        avgPathfindingPerUser: users.length > 0 ? (totalPathfinding / users.length).toFixed(1) : 0,
         avgSavedPinsPerUser: users.length > 0 ? (totalSavedPins / users.length).toFixed(1) : 0
       });
 
@@ -449,106 +483,8 @@ function Dashboard() {
       }
 
       setFeedbackTrends(trendsData);
-
-      // Build usage trends data for charts (last 7 days)
-      // Combine both anonymous analytics data AND user-specific data
-      const usageTrendsData = [];
-      const nowForTrends = new Date();
-      
-      // Check if we have analytics data with timestamps
-      const hasAnalyticsTimestamps = analyticsDataSafe && (
-        (analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches) && analyticsDataSafe.recentSearches.length > 0) ||
-        (analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes) && analyticsDataSafe.recentRoutes.length > 0)
-      );
-      
-      console.log('📊 Building usage trends:', {
-        hasAnalyticsTimestamps,
-        recentSearchesCount: analyticsDataSafe.recentSearches?.length || 0,
-        recentRoutesCount: analyticsDataSafe.recentRoutes?.length || 0,
-        userSearches,
-        userPathfinding,
-        anonymousSearches,
-        anonymousPathfinding
-      });
-      
-      // Calculate how to distribute user-specific data across 7 days
-      // We'll distribute it evenly, but weight it more towards recent days
-      const userSearchesPerDay = userSearches > 0 ? Math.floor(userSearches / 7) : 0;
-      const userSearchesRemainder = userSearches > 0 ? userSearches % 7 : 0;
-      const userPathfindingPerDay = userPathfinding > 0 ? Math.floor(userPathfinding / 7) : 0;
-      const userPathfindingRemainder = userPathfinding > 0 ? userPathfinding % 7 : 0;
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(nowForTrends.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        const dayStart = new Date(date);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(date);
-        dayEnd.setHours(23, 59, 59, 999);
-
-        // Count searches for this day from analytics (anonymous)
-        let dayAnonymousSearches = 0;
-        if (hasAnalyticsTimestamps && analyticsDataSafe.recentSearches && Array.isArray(analyticsDataSafe.recentSearches)) {
-          dayAnonymousSearches = analyticsDataSafe.recentSearches.filter(s => {
-            if (!s || !s.timestamp) return false;
-            const searchDate = new Date(s.timestamp);
-            return searchDate >= dayStart && searchDate <= dayEnd;
-          }).length;
-        }
-        
-        // Add user-specific searches (distributed across 7 days)
-        let dayUserSearches = userSearchesPerDay;
-        // Add remainder to most recent days (prioritize recent activity)
-        if (i < userSearchesRemainder) {
-          dayUserSearches += 1;
-        }
-        
-        // Total searches for this day = anonymous + user-specific
-        const daySearches = dayAnonymousSearches + dayUserSearches;
-
-        // Count pathfinding routes for this day from analytics (anonymous)
-        let dayAnonymousPathfinding = 0;
-        if (hasAnalyticsTimestamps && analyticsDataSafe.recentRoutes && Array.isArray(analyticsDataSafe.recentRoutes)) {
-          dayAnonymousPathfinding = analyticsDataSafe.recentRoutes.filter(r => {
-            if (!r || !r.timestamp) return false;
-            const routeDate = new Date(r.timestamp);
-            return routeDate >= dayStart && routeDate <= dayEnd;
-          }).length;
-        }
-        
-        // Add user-specific pathfinding (distributed across 7 days)
-        let dayUserPathfinding = userPathfindingPerDay;
-        // Add remainder to most recent days (prioritize recent activity)
-        if (i < userPathfindingRemainder) {
-          dayUserPathfinding += 1;
-        }
-        
-        // Total pathfinding for this day = anonymous + user-specific
-        const dayPathfinding = dayAnonymousPathfinding + dayUserPathfinding;
-
-        usageTrendsData.push({
-          date: dateStr,
-          Searches: daySearches,
-          PathfindingRoutes: dayPathfinding
-        });
-      }
-      
-      console.log('✅ Usage trends data built (combined anonymous + user-specific):', {
-        totalDays: usageTrendsData.length,
-        totalSearches: usageTrendsData.reduce((sum, d) => sum + d.Searches, 0),
-        totalPathfinding: usageTrendsData.reduce((sum, d) => sum + d.PathfindingRoutes, 0),
-        breakdown: {
-          userSearches,
-          anonymousSearches,
-          userPathfinding,
-          anonymousPathfinding
-        },
-        data: usageTrendsData
-      });
-      setUsageTrends(usageTrendsData);
     } catch (error) {
-      console.error('❌ Error processing dashboard data:', error);
-      setError(`Error processing data: ${error.message || 'Unknown error'}`);
+      console.error('Error fetching dashboard data:', error);
     } finally {
       setLoading(false);
     }
@@ -565,87 +501,278 @@ function Dashboard() {
     );
   }
 
+  const getMetricTitle = (metricType) => {
+    const titles = {
+      pins: 'Total Pins',
+      users: 'Total Users',
+      campuses: 'Campuses',
+      feedbacks: 'Facility Reports',
+      appFeedback: 'App Feedback',
+      searches: 'Total Searches',
+      pathfinding: 'Pathfinding Routes',
+      savedPins: 'Total Saved Pins',
+      activeUsers: 'Active Users (7 Days)'
+    };
+    return titles[metricType] || metricType;
+  };
+
+  const renderDetailedContent = () => {
+    if (detailedLoading) {
+      return (
+        <div className="side-panel-loading">
+          <div className="spinner"></div>
+          <p>Loading detailed metrics...</p>
+        </div>
+      );
+    }
+
+    if (!detailedData) {
+      return <p>No detailed data available.</p>;
+    }
+
+    switch (selectedMetric) {
+      case 'pins':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Overview</h3>
+              <div className="metric-row">
+                <span>Total Pins:</span>
+                <strong>{detailedData.total}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Visible:</span>
+                <strong>{detailedData.visible}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Invisible:</span>
+                <strong>{detailedData.invisible}</strong>
+              </div>
+            </div>
+
+            {Object.keys(detailedData.byType).length > 0 && (
+              <div className="metric-section">
+                <h3>By Type</h3>
+                {Object.entries(detailedData.byType)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([type, count]) => (
+                    <div key={type} className="metric-row">
+                      <span>{type}:</span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            {Object.keys(detailedData.byCampus).length > 0 && (
+              <div className="metric-section">
+                <h3>By Campus</h3>
+                {Object.entries(detailedData.byCampus)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([campus, count]) => (
+                    <div key={campus} className="metric-row">
+                      <span>{campus}:</span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'users':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Overview</h3>
+              <div className="metric-row">
+                <span>Total Users:</span>
+                <strong>{detailedData.total}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Active (7 Days):</span>
+                <strong>{detailedData.activeUsers}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Recent (30 Days):</span>
+                <strong>{detailedData.recentUsers}</strong>
+              </div>
+              <div className="metric-row">
+                <span>With Activity:</span>
+                <strong>{detailedData.usersWithActivity}</strong>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'campuses':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Campuses ({detailedData.total})</h3>
+              {detailedData.campuses.map(campus => (
+                <div key={campus.id} className="campus-item">
+                  <strong>{campus.name}</strong>
+                  {campus.location && (
+                    <span className="campus-location">{campus.location}</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+
+      case 'feedbacks':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Overview</h3>
+              <div className="metric-row">
+                <span>Total Reports:</span>
+                <strong>{detailedData.total}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Recent (7 Days):</span>
+                <strong>{detailedData.recent}</strong>
+              </div>
+              <div className="metric-row">
+                <span>App Feedback:</span>
+                <strong>{detailedData.appFeedback}</strong>
+              </div>
+            </div>
+
+            {Object.keys(detailedData.byType).length > 0 && (
+              <div className="metric-section">
+                <h3>By Type</h3>
+                {Object.entries(detailedData.byType)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([type, count]) => (
+                    <div key={type} className="metric-row">
+                      <span>{type}:</span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'appFeedback':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Overview</h3>
+              <div className="metric-row">
+                <span>Total Feedback:</span>
+                <strong>{detailedData.total}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Recent (7 Days):</span>
+                <strong>{detailedData.recent}</strong>
+              </div>
+            </div>
+
+            {Object.keys(detailedData.byStatus).length > 0 && (
+              <div className="metric-section">
+                <h3>By Status</h3>
+                {Object.entries(detailedData.byStatus)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([status, count]) => (
+                    <div key={status} className="metric-row">
+                      <span>{status}:</span>
+                      <strong>{count}</strong>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'searches':
+      case 'pathfinding':
+      case 'savedPins':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Overview</h3>
+              <div className="metric-row">
+                <span>Total:</span>
+                <strong>{detailedData.total}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Users with Activity:</span>
+                <strong>{detailedData.usersWithSearches || detailedData.usersWithPathfinding || detailedData.usersWithSavedPins}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Average per User:</span>
+                <strong>{detailedData.average}</strong>
+              </div>
+            </div>
+
+            {detailedData.topUsers && detailedData.topUsers.length > 0 && (
+              <div className="metric-section">
+                <h3>Top Users</h3>
+                {detailedData.topUsers.map((user, idx) => (
+                  <div key={user.userId || idx} className="metric-row">
+                    <span>{user.email || 'Unknown'}:</span>
+                    <strong>{user.count}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'activeUsers':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>User Activity</h3>
+              <div className="metric-row">
+                <span>Active (7 Days):</span>
+                <strong>{detailedData.active7Days}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Active (30 Days):</span>
+                <strong>{detailedData.active30Days}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Total Users:</span>
+                <strong>{detailedData.totalUsers}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Inactive Users:</span>
+                <strong>{detailedData.inactiveUsers}</strong>
+              </div>
+            </div>
+          </div>
+        );
+
+      default:
+        return <p>No detailed information available.</p>;
+    }
+  };
+
   return (
     <div className="dashboard-container">
-      <div className="dashboard-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '15px' }}>
+      <div className="dashboard-header">
         <h1>Engagement Analytics</h1>
-        <div style={{ display: 'flex', gap: '15px', alignItems: 'center' }}>
-          <button 
-            onClick={() => {
-              setLoading(true);
-              fetchData();
-            }}
-            disabled={loading}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: loading ? '#ccc' : CAMPUS_TRAILS_BLUE,
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 'bold'
-            }}
+        <div className="campus-selector">
+          <label>Active Campus Overview:</label>
+          <select 
+            value={selectedCampus} 
+            onChange={(e) => setSelectedCampus(e.target.value)}
+            className="campus-dropdown"
           >
-            {loading ? '⏳ Loading...' : '🔄 Refresh'}
-          </button>
-          <div className="campus-selector">
-            <label>Active Campus Overview:</label>
-            <select 
-              value={selectedCampus} 
-              onChange={(e) => setSelectedCampus(e.target.value)}
-              className="campus-dropdown"
-            >
-              <option value="all">All Campuses</option>
-              {campuses.map(campus => (
-                <option key={campus._id} value={campus._id}>
-                  {campus.name}
-                </option>
-              ))}
-            </select>
-          </div>
+            <option value="all">All Campuses</option>
+            {campuses.map(campus => (
+              <option key={campus._id} value={campus._id}>
+                {campus.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
-
-      {/* Error Message */}
-      {error && (
-        <div style={{
-          backgroundColor: '#f8d7da',
-          color: '#721c24',
-          padding: '15px',
-          margin: '20px',
-          borderRadius: '5px',
-          border: '1px solid #f5c6cb'
-        }}>
-          <strong>⚠️ Error:</strong> {error}
-          <br />
-          <small style={{ marginTop: '10px', display: 'block' }}>
-            Check browser console (F12) for more details. Make sure:
-            <ul style={{ marginTop: '5px', paddingLeft: '20px' }}>
-              <li>REACT_APP_API_URL is set correctly in Render</li>
-              <li>Backend service is running</li>
-              <li>You are logged in</li>
-            </ul>
-          </small>
-          <button 
-            onClick={() => {
-              setError('');
-              fetchData();
-            }}
-            style={{
-              marginTop: '10px',
-              padding: '5px 15px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '3px',
-              cursor: 'pointer'
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      )}
 
       {/* System Health */}
       <div className="dashboard-section">
@@ -672,246 +799,61 @@ function Dashboard() {
       <div className="dashboard-section">
         <h2>Quick Statistics</h2>
         <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_BLUE}`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_BLUE}`, padding: '15px' }} onClick={() => handleCardClick('pins')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Pins</h3>
             <p className="stat-number" style={{ fontSize: '28px' }}>{stats.pins}</p>
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }} onClick={() => handleCardClick('users')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Users</h3>
             <p className="stat-number" style={{ fontSize: '28px' }}>{stats.users}</p>
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_YELLOW}`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_YELLOW}`, padding: '15px' }} onClick={() => handleCardClick('campuses')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Campuses</h3>
             <p className="stat-number" style={{ fontSize: '28px' }}>{stats.campuses}</p>
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_RED}`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_RED}`, padding: '15px' }} onClick={() => handleCardClick('feedbacks')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Facility Reports</h3>
             <p className="stat-number" style={{ fontSize: '28px' }}>{stats.feedbacks}</p>
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid #6f42c1`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid #6f42c1`, padding: '15px' }} onClick={() => handleCardClick('appFeedback')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>App Feedback</h3>
             <p className="stat-number" style={{ fontSize: '28px' }}>{stats.suggestionsAndFeedbacks}</p>
           </div>
         </div>
       </div>
 
-      {/* Usage Analytics with Charts */}
+      {/* Simple Local Tracking */}
       <div className="dashboard-section">
-        <h2>Usage Analytics</h2>
-        
-        {/* Summary Cards */}
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginBottom: '20px' }}>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_BLUE}`, padding: '15px' }}>
+        <h2>Local Tracking Data</h2>
+        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_BLUE}`, padding: '15px' }} onClick={() => handleCardClick('searches')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Searches</h3>
-            <p className="stat-number" style={{ fontSize: '28px', fontWeight: 'bold' }}>{localTracking.totalSearches}</p>
-            <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-              {localTracking.userSearches > 0 && (
-                <span>Users: {localTracking.userSearches} • </span>
-              )}
-              {localTracking.anonymousSearches > 0 && (
-                <span>Anonymous: {localTracking.anonymousSearches}</span>
-              )}
+            <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalSearches}</p>
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              Avg: {localTracking.avgSearchesPerUser} per user
             </p>
-            {localTracking.avgSearchesPerUser > 0 && (
-              <p style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
-                Avg: {localTracking.avgSearchesPerUser} per logged-in user
-              </p>
-            )}
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_YELLOW}`, padding: '15px' }} onClick={() => handleCardClick('pathfinding')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Pathfinding Routes</h3>
-            <p className="stat-number" style={{ fontSize: '28px', fontWeight: 'bold' }}>{localTracking.totalPathfinding}</p>
-            <p style={{ fontSize: '11px', color: '#666', marginTop: '5px' }}>
-              {localTracking.userPathfinding > 0 && (
-                <span>Users: {localTracking.userPathfinding} • </span>
-              )}
-              {localTracking.anonymousPathfinding > 0 && (
-                <span>Anonymous: {localTracking.anonymousPathfinding}</span>
-              )}
+            <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalPathfinding}</p>
+            <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
+              Avg: {localTracking.avgPathfindingPerUser} per user
             </p>
-            {localTracking.avgPathfindingPerUser > 0 && (
-              <p style={{ fontSize: '11px', color: '#999', marginTop: '2px' }}>
-                Avg: {localTracking.avgPathfindingPerUser} per logged-in user
-              </p>
-            )}
           </div>
-        </div>
-
-        {/* Usage Trends Chart - Always show, even if data is zero */}
-        <div className="card" style={{ padding: '20px', marginTop: '20px' }}>
-          <h3 style={{ marginBottom: '20px', fontSize: '16px', fontWeight: 'bold' }}>Usage Trends (Last 7 Days)</h3>
-          {usageTrends.length === 0 ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-              <p>No usage data available yet.</p>
-              <p style={{ fontSize: '12px', marginTop: '10px' }}>
-                Data will appear here once analytics API is deployed and tracking begins.
-              </p>
-            </div>
-          ) : (
-            <div style={{ height: '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={usageTrends}>
-                  <defs>
-                    <linearGradient id="colorSearches" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CAMPUS_TRAILS_BLUE} stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor={CAMPUS_TRAILS_BLUE} stopOpacity={0}/>
-                    </linearGradient>
-                    <linearGradient id="colorPathfinding" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={CAMPUS_TRAILS_GREEN} stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor={CAMPUS_TRAILS_GREEN} stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
-                    style={{ fontSize: '12px' }}
-                  />
-                  <YAxis 
-                    style={{ fontSize: '12px' }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ fontSize: '12px', backgroundColor: '#fff', border: '1px solid #ccc' }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ fontSize: '12px' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="Searches" 
-                    stroke={CAMPUS_TRAILS_BLUE} 
-                    fillOpacity={1}
-                    fill="url(#colorSearches)"
-                    strokeWidth={2}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="PathfindingRoutes" 
-                    stroke={CAMPUS_TRAILS_GREEN} 
-                    fillOpacity={1}
-                    fill="url(#colorPathfinding)"
-                    strokeWidth={2}
-                    name="Pathfinding Routes"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-        
-        {/* Additional Stats */}
-        <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', marginTop: '20px' }}>
-          <div className="stat-card" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_YELLOW}`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid ${CAMPUS_TRAILS_GREEN}`, padding: '15px' }} onClick={() => handleCardClick('savedPins')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Total Saved Pins</h3>
             <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.totalSavedPins}</p>
             <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
               Avg: {localTracking.avgSavedPinsPerUser} per user
             </p>
           </div>
-          <div className="stat-card" style={{ borderTop: `4px solid #6f42c1`, padding: '15px' }}>
+          <div className="stat-card clickable" style={{ borderTop: `4px solid #6f42c1`, padding: '15px' }} onClick={() => handleCardClick('activeUsers')}>
             <h3 style={{ fontSize: '14px', marginBottom: '8px' }}>Active Users (7 Days)</h3>
             <p className="stat-number" style={{ fontSize: '24px' }}>{localTracking.activeUsers7Days}</p>
             <p style={{ fontSize: '12px', color: '#666', marginTop: '5px' }}>
               Users active this week
             </p>
           </div>
-        </div>
-      </div>
-
-      {/* Popular Routes */}
-      <div className="dashboard-section">
-        <h2>Most Popular Routes (Point A → Point B)</h2>
-        <div className="card" style={{ padding: '20px' }}>
-          {popularRoutes.length > 0 ? (
-            <>
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
-                Showing routes from anonymous tracking. Total pathfinding routes: <strong>{localTracking.totalPathfinding}</strong> (includes {localTracking.userPathfinding} from logged-in users + {localTracking.anonymousPathfinding} anonymous)
-              </p>
-              <div style={{ display: 'grid', gap: '10px' }}>
-                {popularRoutes.slice(0, 10).map((route, index) => (
-                  <div key={index} style={{ 
-                    padding: '12px', 
-                    backgroundColor: '#f8f9fa', 
-                    borderRadius: '5px',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <strong style={{ fontSize: '13px' }}>
-                          {route.startPoint?.title || route.startPoint?.pinId || 'Unknown'} → {route.endPoint?.title || route.endPoint?.pinId || 'Unknown'}
-                        </strong>
-                        {(route.startPoint?.description || route.endPoint?.description) && (
-                          <p style={{ fontSize: '11px', color: '#666', margin: '4px 0 0 0' }}>
-                            {route.startPoint?.description || route.startPoint?.pinId} → {route.endPoint?.description || route.endPoint?.pinId}
-                          </p>
-                        )}
-                      </div>
-                      <div style={{ 
-                        backgroundColor: CAMPUS_TRAILS_BLUE, 
-                        color: 'white', 
-                        padding: '4px 12px', 
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}>
-                        {route.count || 0}x
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
-              No route data available yet. Routes will appear here as users navigate between points.
-              <br />
-              <small>Total pathfinding routes: <strong>{localTracking.totalPathfinding}</strong> ({localTracking.userPathfinding} logged-in + {localTracking.anonymousPathfinding} anonymous)</small>
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* Popular Searches */}
-      <div className="dashboard-section">
-        <h2>Most Popular Searches</h2>
-        <div className="card" style={{ padding: '20px' }}>
-          {popularSearches.length > 0 ? (
-            <>
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>
-                Showing searches from anonymous tracking. Total searches: <strong>{localTracking.totalSearches}</strong> (includes {localTracking.userSearches} from logged-in users + {localTracking.anonymousSearches} anonymous)
-              </p>
-              <div style={{ display: 'grid', gap: '10px' }}>
-                {popularSearches.slice(0, 10).map((search, index) => (
-                  <div key={index} style={{ 
-                    padding: '12px', 
-                    backgroundColor: '#f8f9fa', 
-                    borderRadius: '5px',
-                    border: '1px solid #e0e0e0',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <span style={{ fontSize: '13px' }}>"{search.query || 'Unknown'}"</span>
-                    <span style={{ 
-                      backgroundColor: CAMPUS_TRAILS_GREEN, 
-                      color: 'white', 
-                      padding: '4px 12px', 
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
-                    }}>
-                      {search.count || 0}x
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
-              No search data available yet. Searches will appear here as users search for locations.
-              <br />
-              <small>Total searches: <strong>{localTracking.totalSearches}</strong> ({localTracking.userSearches} logged-in + {localTracking.anonymousSearches} anonymous)</small>
-            </p>
-          )}
         </div>
       </div>
 
@@ -955,6 +897,22 @@ function Dashboard() {
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Side Panel */}
+      {sidePanelOpen && (
+        <>
+          <div className="side-panel-overlay" onClick={closeSidePanel}></div>
+          <div className="side-panel">
+            <div className="side-panel-header">
+              <h2>{getMetricTitle(selectedMetric)}</h2>
+              <button className="side-panel-close" onClick={closeSidePanel}>×</button>
+            </div>
+            <div className="side-panel-content">
+              {renderDetailedContent()}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
