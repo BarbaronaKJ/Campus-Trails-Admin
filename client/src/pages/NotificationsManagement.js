@@ -57,7 +57,7 @@ function NotificationsManagement() {
 
   return (
     <div className="container">
-      <h1>Send Push Notifications</h1>
+      <h1>Send Notifications</h1>
       
       {message.text && (
         <div className={`alert ${message.type === 'success' ? 'alert-success' : 'alert-danger'}`} style={{ marginBottom: '20px' }}>
@@ -120,12 +120,12 @@ function NotificationsManagement() {
             onChange={e => setFormData({ ...formData, targetAudience: e.target.value })}
             disabled={loading}
           >
-            <option value="all">All Users (with push tokens)</option>
+            <option value="all">All Users</option>
             <option value="students">Students Only</option>
             <option value="admins">Admins Only</option>
           </select>
           <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-            Only users who have enabled push notifications and registered their devices will receive notifications.
+            Notifications will be stored in each user's profile and can be viewed in the app under Profile → Notifications.
           </small>
         </div>
         
@@ -140,12 +140,12 @@ function NotificationsManagement() {
       </div>
 
       <div className="card" style={{ marginTop: '20px', backgroundColor: '#f8f9fa' }}>
-        <h3>📱 About Push Notifications</h3>
+        <h3>📱 About In-App Notifications</h3>
         <ul style={{ margin: '10px 0', paddingLeft: '20px' }}>
-          <li>Notifications are sent to users who have enabled push notifications in the mobile app</li>
-          <li>Users must have the app installed and have granted notification permissions</li>
-          <li>Notifications are delivered via Expo Push Notification Service</li>
-          <li>Delivery statistics show how many notifications were successfully sent</li>
+          <li>Notifications are stored in each user's profile in the database</li>
+          <li>Users can view notifications in the mobile app under Profile → Notifications</li>
+          <li>Notifications appear in the user's notification list when they open the app</li>
+          <li>Delivery statistics show how many notifications were successfully stored</li>
         </ul>
       </div>
     </div>
