@@ -51,7 +51,44 @@ const userSchema = new mongoose.Schema({
   activity: {
     savedPins: { type: [mongoose.Schema.Types.Mixed], default: [] },
     feedbackHistory: { type: [mongoose.Schema.Types.Mixed], default: [] },
-    lastActiveDate: { type: Date, default: Date.now }
+    lastActiveDate: { type: Date, default: Date.now },
+    // Notifications array - stores notifications sent to this user
+    notifications: {
+      type: [{
+        id: {
+          type: String,
+          required: true
+        },
+        title: {
+          type: String,
+          required: true,
+          trim: true
+        },
+        body: {
+          type: String,
+          trim: true,
+          default: ''
+        },
+        type: {
+          type: String,
+          enum: ['announcement', 'update', 'reminder', 'custom'],
+          default: 'announcement'
+        },
+        data: {
+          type: mongoose.Schema.Types.Mixed,
+          default: {}
+        },
+        read: {
+          type: Boolean,
+          default: false
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now
+        }
+      }],
+      default: []
+    }
   },
   // Secret question for password recovery
   secretQuestion: {
