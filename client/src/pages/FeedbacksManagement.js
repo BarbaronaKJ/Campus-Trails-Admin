@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { usersAPI, suggestionsAndFeedbacksAPI } from '../services/api';
 
 function FeedbacksManagement() {
@@ -6,122 +6,61 @@ function FeedbacksManagement() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError('');
-    try {
-      // Fetch both Facility Reports and User App Feedback simultaneously
-      console.log('🔄 Fetching both Facility Reports and User App Feedback...');
-      
-      const [usersRes, suggestionsRes] = await Promise.allSettled([
-        // Fetch all users and extract their feedbackHistory (Facility Reports)
-        usersAPI.getAll({ limit: 10000 }),
-        // Fetch suggestions and feedbacks (User App Feedback)
-        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 }).catch(err => {
-          console.error('❌ Error fetching User App Feedback:', err);
-          return { data: null, error: err };
-        })
-      ]);
-      
-      // Process Facility Reports
-      if (usersRes.status === 'fulfilled') {
-        try {
-          const users = usersRes.value.data.users || [];
-          
-          // Flatten all feedbackHistory entries from all users
-          const allFeedbacks = [];
-          users.forEach(user => {
-            if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
-              user.activity.feedbackHistory.forEach(feedback => {
-                allFeedbacks.push({
-                  ...feedback,
-                  userId: {
-                    _id: user._id,
-                    email: user.email,
-                    username: user.username,
-                    displayName: user.displayName
-                  },
-                  _id: feedback._id || feedback.id // Use feedback's _id or id as unique identifier
-                });
-              });
-            }
-          });
-          
-          // Sort by date (newest first)
-          allFeedbacks.sort((a, b) => {
-            const dateA = new Date(a.date || a.createdAt || 0);
-            const dateB = new Date(b.date || b.createdAt || 0);
-            return dateB - dateA;
-          });
-          
-          setFeedbacks(allFeedbacks);
-          console.log('✅ Facility Reports fetched:', allFeedbacks.length, 'items');
-        } catch (error) {
-          console.error('❌ Error processing Facility Reports:', error);
-          setFeedbacks([]);
-        }
-      } else {
-        console.error('❌ Error fetching Facility Reports:', usersRes.reason);
-        setFeedbacks([]);
-      }
-      
-      // Process User App Feedback
-      if (suggestionsRes.status === 'fulfilled' && suggestionsRes.value && suggestionsRes.value.data) {
-        try {
-          const res = suggestionsRes.value;
-          console.log('✅ Suggestions API response:', res);
-          
-          // Handle different response structures
-          let suggestionsData = [];
-          if (res && res.data) {
-            if (res.data.suggestions) {
-              suggestionsData = res.data.suggestions;
-            } else if (res.data.success && res.data.suggestions) {
-              suggestionsData = res.data.suggestions;
-            } else if (Array.isArray(res.data)) {
-              suggestionsData = res.data;
-            }
-          } else if (Array.isArray(res)) {
-            suggestionsData = res;
-          }
-          
-          console.log('✅ User App Feedback fetched:', suggestionsData.length, 'items');
-          console.log('📋 Sample data:', suggestionsData.slice(0, 2));
-          setSuggestions(suggestionsData);
-          setError(''); // Clear any previous errors
-        } catch (error) {
-          console.error('❌ Error processing User App Feedback:', error);
-          setSuggestions([]);
-        }
-      } else {
-        // Handle error case
-        const suggestionsError = suggestionsRes.status === 'rejected' ? suggestionsRes.reason : (suggestionsRes.value?.error);
-        console.error('❌ Error fetching User App Feedback:', suggestionsError);
-        console.error('❌ Error details:', suggestionsError?.response?.data || suggestionsError?.message);
-        console.error('❌ Status code:', suggestionsError?.response?.status);
-        setSuggestions([]);
-        
-        // Set error message
-        if (suggestionsError?.response?.status === 404) {
-          setError('Route not found. The backend needs to be redeployed with the suggestions_and_feedbacks route. Please trigger a manual deployment in Render.');
-        } else {
-          setError(`Error loading User App Feedback: ${suggestionsError?.message || 'Unknown error'}. Check console for details.`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error fetching data:', error);
-      setFeedbacks([]);
-      setSuggestions([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []); // Remove activeTab dependency - fetch both always
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [activeTab]);
+
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      if (activeTab === 'reports') {
+        // Fetch all users and extract their feedbackHistory
+        const res = await usersAPI.getAll({ limit: 10000 });
+        const users = res.data.users || [];
+        
+        // Flatten all feedbackHistory entries from all users
+        const allFeedbacks = [];
+        users.forEach(user => {
+          if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
+            user.activity.feedbackHistory.forEach(feedback => {
+              allFeedbacks.push({
+                ...feedback,
+                userId: {
+                  _id: user._id,
+                  email: user.email,
+                  username: user.username,
+                  displayName: user.displayName
+                },
+                _id: feedback._id || feedback.id // Use feedback's _id or id as unique identifier
+              });
+            });
+          }
+        });
+        
+        // Sort by date (newest first)
+        allFeedbacks.sort((a, b) => {
+          const dateA = new Date(a.date || a.createdAt || 0);
+          const dateB = new Date(b.date || b.createdAt || 0);
+          return dateB - dateA;
+        });
+        
+        setFeedbacks(allFeedbacks);
+      } else {
+        const res = await suggestionsAndFeedbacksAPI.getAll({ limit: 1000 });
+        setSuggestions(res.data.suggestions || []);
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      if (activeTab === 'reports') {
+        setFeedbacks([]);
+      } else {
+        setSuggestions([]);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDeleteFeedback = async (feedbackData) => {
     if (!window.confirm('Are you sure you want to delete this feedback/report?')) {
@@ -277,6 +216,7 @@ function FeedbacksManagement() {
                   <tr style={{ fontSize: '12px' }}>
                     <th style={{ fontSize: '12px', padding: '8px' }}>User</th>
                     <th style={{ fontSize: '12px', padding: '8px' }}>Building/Facility</th>
+                    <th style={{ fontSize: '12px', padding: '8px' }}>Room/Area</th>
                     <th style={{ fontSize: '12px', padding: '8px' }}>Type</th>
                     <th style={{ fontSize: '12px', padding: '8px' }}>Comment</th>
                     <th style={{ fontSize: '12px', padding: '8px' }}>Rating</th>
@@ -290,6 +230,7 @@ function FeedbacksManagement() {
                     <tr key={f._id || f.id || `feedback-${index}`} style={{ fontSize: '12px' }}>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.userId?.email || f.userId?.username || 'N/A'}</td>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.pinTitle || f.pinId?.description || f.pinId?.title || 'N/A'}</td>
+                      <td style={{ fontSize: '12px', padding: '8px' }}>{f.roomId || 'N/A'}</td>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.feedbackType || 'report'}</td>
                       <td style={{ maxWidth: '250px', wordWrap: 'break-word', fontSize: '12px', padding: '8px' }}>
                         {f.comment || 'N/A'}
@@ -336,40 +277,7 @@ function FeedbacksManagement() {
       {activeTab === 'suggestions' && (
         <div className="card">
           <h2 style={{ marginBottom: '20px' }}>User App Feedback</h2>
-          
-          {/* Error Message */}
-          {error && (
-            <div style={{
-              backgroundColor: '#f8d7da',
-              color: '#721c24',
-              padding: '15px',
-              marginBottom: '20px',
-              borderRadius: '5px',
-              border: '1px solid #f5c6cb'
-            }}>
-              <strong>⚠️ Error:</strong> {error}
-              <br />
-              <button 
-                onClick={() => {
-                  setError('');
-                  fetchData();
-                }}
-                style={{
-                  marginTop: '10px',
-                  padding: '5px 15px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '3px',
-                  cursor: 'pointer'
-                }}
-              >
-                Retry
-              </button>
-            </div>
-          )}
-          
-          {suggestions.length === 0 && !error ? (
+          {suggestions.length === 0 ? (
             <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
               No user app feedback found.
             </p>
