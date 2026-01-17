@@ -569,7 +569,9 @@ function Dashboard() {
       }
     } catch (error) {
       console.error('Error fetching detailed data:', error);
-      setDetailedData(null);
+      setDetailedData({
+        error: 'Failed to load data. Please try again.'
+      });
     } finally {
       setDetailedLoading(false);
     }
@@ -1280,6 +1282,25 @@ function Dashboard() {
               <p>{systemHealth.express === 'online' ? '✓ Online' : '✗ Offline'}</p>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Campus Selector */}
+      <div className="dashboard-section">
+        <div className="campus-selector">
+          <label>Active Campus Overview:</label>
+          <select
+            value={selectedCampus}
+            onChange={(e) => setSelectedCampus(e.target.value)}
+            className="campus-dropdown"
+          >
+            <option value="all">All Campuses</option>
+            {campuses.map(campus => (
+              <option key={campus._id || campus.id} value={campus._id || campus.id}>
+                {campus.name}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 
