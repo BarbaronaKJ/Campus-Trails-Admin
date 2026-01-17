@@ -32,6 +32,7 @@ function Dashboard() {
   const [selectedMetric, setSelectedMetric] = useState(null);
   const [detailedData, setDetailedData] = useState(null);
   const [detailedLoading, setDetailedLoading] = useState(false);
+  const [pinViewMode, setPinViewMode] = useState('visible'); // 'visible' or 'invisible'
 
   const CAMPUS_TRAILS_GREEN = '#28a745';
   const CAMPUS_TRAILS_BLUE = '#007bff';
@@ -68,13 +69,21 @@ function Dashboard() {
 
   const handleCardClick = (metricType) => {
     if (selectedMetric === metricType) {
-      // If clicking the same card, close the panel
+      // If clicking the same card, close the popup
       setSelectedMetric(null);
       setDetailedData(null);
+      setPinViewMode('visible'); // Reset to visible when closing
     } else {
-      // Open panel for new metric
+      // Open popup for new metric
       setSelectedMetric(metricType);
+      setPinViewMode('visible'); // Reset view mode when opening
     }
+  };
+
+  const closePopup = () => {
+    setSelectedMetric(null);
+    setDetailedData(null);
+    setPinViewMode('visible');
   };
 
   useEffect(() => {
@@ -115,18 +124,23 @@ function Dashboard() {
             }
             
             // Separate visible (buildings/facilities) from invisible (waypoints)
-            if (pin.visible === false) {
+            // Treat undefined, null, or true as visible; only false as invisible
+            if (pin.visible === false || pin.visible === 'false') {
               pinsByCampus[campusName].invisible.push(pin);
             } else {
               pinsByCampus[campusName].visible.push(pin);
             }
           });
 
+          // Calculate accurate counts
+          const visibleCount = pins.filter(p => p.visible !== false && p.visible !== 'false').length;
+          const invisibleCount = pins.filter(p => p.visible === false || p.visible === 'false').length;
+
           setDetailedData({
             total: pins.length,
             byCampus: pinsByCampus,
-            visible: pins.filter(p => p.visible !== false).length,
-            invisible: pins.filter(p => p.visible === false).length
+            visible: visibleCount,
+            invisible: invisibleCount
           });
           break;
 
@@ -561,54 +575,53 @@ function Dashboard() {
 
             {Object.keys(detailedData.byCampus).length > 0 && (
               <div className="pins-by-campus">
-                <h3>By Campus</h3>
-                {Object.entries(detailedData.byCampus).map(([campusName, campusData]) => (
-                  <div key={campusName} className="campus-pins-section">
-                    <h4 className="campus-name">{campusName}</h4>
-                    
-                    {/* Visible Pins - Buildings/Facilities */}
-                    <div className="pin-category">
-                      <h5 className="category-title">
-                        Visible Pins - Buildings/Facilities 
-                        <span className="pin-count">({campusData.visible.length})</span>
-                      </h5>
-                      {campusData.visible.length > 0 ? (
-                        <ul className="pin-list">
-                          {campusData.visible.map(pin => (
-                            <li key={pin._id} className="pin-item">
-                              <strong>{pin.title || 'Untitled'}</strong>
-                              {pin.description && <span className="pin-description"> - {pin.description}</span>}
-                              {pin.pinType && <span className="pin-type">{pin.pinType}</span>}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="no-pins">No visible pins</p>
-                      )}
-                    </div>
+                {/* Toggle Buttons */}
+                <div className="pin-view-toggle">
+                  <button 
+                    className={`toggle-btn ${pinViewMode === 'visible' ? 'active' : ''}`}
+                    onClick={() => setPinViewMode('visible')}
+                  >
+                    Visible (Buildings/Facilities) <span>({detailedData.visible})</span>
+                  </button>
+                  <button 
+                    className={`toggle-btn ${pinViewMode === 'invisible' ? 'active' : ''}`}
+                    onClick={() => setPinViewMode('invisible')}
+                  >
+                    Invisible (Waypoints) <span>({detailedData.invisible})</span>
+                  </button>
+                </div>
 
-                    {/* Invisible Pins - Waypoints */}
-                    <div className="pin-category">
-                      <h5 className="category-title">
-                        Invisible Pins - Waypoints 
-                        <span className="pin-count">({campusData.invisible.length})</span>
-                      </h5>
-                      {campusData.invisible.length > 0 ? (
-                        <ul className="pin-list">
-                          {campusData.invisible.map(pin => (
-                            <li key={pin._id} className="pin-item">
-                              <strong>{pin.title || 'Untitled Waypoint'}</strong>
-                              {pin.description && <span className="pin-description"> - {pin.description}</span>}
-                              {pin.pinType && <span className="pin-type">{pin.pinType}</span>}
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="no-pins">No invisible pins</p>
-                      )}
+                <h3>By Campus</h3>
+                {Object.entries(detailedData.byCampus).map(([campusName, campusData]) => {
+                  const pinsToShow = pinViewMode === 'visible' ? campusData.visible : campusData.invisible;
+                  const categoryLabel = pinViewMode === 'visible' ? 'Buildings/Facilities' : 'Waypoints';
+                  
+                  return (
+                    <div key={campusName} className="campus-pins-section">
+                      <h4 className="campus-name">{campusName}</h4>
+                      
+                      <div className="pin-category">
+                        <h5 className="category-title">
+                          {pinViewMode === 'visible' ? 'Visible' : 'Invisible'} Pins - {categoryLabel}
+                          <span className="pin-count">({pinsToShow.length})</span>
+                        </h5>
+                        {pinsToShow.length > 0 ? (
+                          <ul className="pin-list">
+                            {pinsToShow.map(pin => (
+                              <li key={pin._id} className="pin-item">
+                                <strong>{pin.title || (pinViewMode === 'visible' ? 'Untitled' : 'Untitled Waypoint')}</strong>
+                                {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                                {pin.pinType && <span className="pin-type">{pin.pinType}</span>}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="no-pins">No {pinViewMode === 'visible' ? 'visible' : 'invisible'} pins</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -932,17 +945,20 @@ function Dashboard() {
         </div>
       </div>
 
-      {/* Detail Panel */}
+      {/* Popup Modal */}
       {selectedMetric && (
-        <div className="dashboard-section detail-panel">
-          <div className="detail-panel-header">
-            <h2>{getMetricTitle(selectedMetric)}</h2>
-            <button className="detail-panel-close" onClick={() => handleCardClick(selectedMetric)}>×</button>
+        <>
+          <div className="popup-overlay" onClick={closePopup}></div>
+          <div className="popup-modal">
+            <div className="popup-header">
+              <h2>{getMetricTitle(selectedMetric)}</h2>
+              <button className="popup-close" onClick={closePopup}>×</button>
+            </div>
+            <div className="popup-content">
+              {renderDetailedContent()}
+            </div>
           </div>
-          <div className="detail-panel-content">
-            {renderDetailedContent()}
-          </div>
-        </div>
+        </>
       )}
     </div>
   );

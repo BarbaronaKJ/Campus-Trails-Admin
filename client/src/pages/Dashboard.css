@@ -223,39 +223,72 @@
   color: #666;
 }
 
-/* Detail Panel */
-.detail-panel {
+/* Popup Modal */
+.popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 998;
   animation: fadeIn 0.3s ease;
-  margin-top: 20px;
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
-    transform: translateY(-10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 
-.detail-panel-header {
+.popup-modal {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90%;
+  max-width: 900px;
+  max-height: 85vh;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  z-index: 999;
+  display: flex;
+  flex-direction: column;
+  animation: popupSlideIn 0.3s ease;
+}
+
+@keyframes popupSlideIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -45%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.popup-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 15px;
+  padding: 25px 30px;
   border-bottom: 2px solid #28a745;
+  background: linear-gradient(180deg, #f9f9f9 0%, #ffffff 100%);
+  border-radius: 12px 12px 0 0;
 }
 
-.detail-panel-header h2 {
+.popup-header h2 {
   margin: 0;
   color: #2c3e50;
   font-size: 24px;
 }
 
-.detail-panel-close {
+.popup-close {
   background: none;
   border: none;
   font-size: 32px;
@@ -271,14 +304,16 @@
   transition: all 0.2s;
 }
 
-.detail-panel-close:hover {
+.popup-close:hover {
   background: #f0f0f0;
   color: #dc3545;
   transform: rotate(90deg);
 }
 
-.detail-panel-content {
-  padding: 0;
+.popup-content {
+  padding: 30px;
+  overflow-y: auto;
+  flex: 1;
 }
 
 .detail-panel-loading {
@@ -373,6 +408,55 @@
 /* Pins by Campus */
 .pins-by-campus {
   margin-top: 25px;
+}
+
+.pin-view-toggle {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 12px 20px;
+  border: 2px solid #ddd;
+  background: white;
+  color: #666;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.toggle-btn:hover {
+  border-color: #28a745;
+  color: #28a745;
+  background: #f0f9f4;
+}
+
+.toggle-btn.active {
+  background: #28a745;
+  color: white;
+  border-color: #28a745;
+  font-weight: 600;
+}
+
+.toggle-btn.active span {
+  background: rgba(255, 255, 255, 0.3);
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-weight: 600;
+}
+
+.toggle-btn span {
+  font-weight: 600;
 }
 
 .pins-by-campus > h3 {
