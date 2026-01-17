@@ -942,19 +942,19 @@ function Dashboard() {
                       <li key={report._id || idx} className="report-item">
                         <div className="report-header">
                           {reportType && reportType !== 'General' && <strong>{reportType}</strong>}
-                          {!reportType || reportType === 'General' ? <span></span> : null}
                           <span className="report-date">
                             {new Date(report.date || report.createdAt || 0).toLocaleDateString()}
                           </span>
                         </div>
-                      {report.message && (
-                        <p className="report-message">{report.message}</p>
-                      )}
-                      {report.userEmail && (
-                        <span className="report-user">By: {report.userEmail}</span>
-                      )}
-                    </li>
-                  ))}
+                        {report.message && (
+                          <p className="report-message">{report.message}</p>
+                        )}
+                        {report.userEmail && (
+                          <span className="report-user">By: {report.userEmail}</span>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -1011,12 +1011,14 @@ function Dashboard() {
               <div className="metric-section">
                 <h3>All Feedback ({detailedData.feedbacksList.length})</h3>
                 <ul className="feedback-list">
-                  {detailedData.feedbacksList.map((feedback, idx) => (
-                    <li key={feedback._id || idx} className="feedback-item">
-                      <div className="feedback-header">
-                        <strong>{feedback.subject || feedback.title || 'No Subject'}</strong>
-                        <span className="feedback-status">{feedback.status || 'Pending'}</span>
-                      </div>
+                  {detailedData.feedbacksList.map((feedback, idx) => {
+                    const feedbackSubject = feedback.subject || feedback.title;
+                    return (
+                      <li key={feedback._id || idx} className="feedback-item">
+                        <div className="feedback-header">
+                          {feedbackSubject && feedbackSubject !== 'No Subject' && <strong>{feedbackSubject}</strong>}
+                          <span className="feedback-status">{feedback.status || 'Pending'}</span>
+                        </div>
                       {feedback.message && (
                         <p className="feedback-message">{feedback.message}</p>
                       )}
