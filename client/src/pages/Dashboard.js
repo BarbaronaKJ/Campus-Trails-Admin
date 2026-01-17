@@ -111,12 +111,13 @@ function Dashboard() {
             throw new Error(`Failed to fetch pins: ${pinsResponse.status} ${pinsResponse.statusText}`);
           }
           const pinsRes = await pinsResponse.json();
-          const pins = pinsRes.pins || pinsRes.data || [];
+          const pins = Array.isArray(pinsRes.pins) ? pinsRes.pins : (Array.isArray(pinsRes.data) ? pinsRes.data : []);
           
           // Organize pins by campus, then by visible/invisible
           const pinsByCampus = {};
           
-          pins.forEach(pin => {
+          if (Array.isArray(pins)) {
+            pins.forEach(pin => {
             const campusName = pin.campusId?.name || 'Unknown Campus';
             const campusId = pin.campusId?._id || pin.campusId || 'unknown';
             
