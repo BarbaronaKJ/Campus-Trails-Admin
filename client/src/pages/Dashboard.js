@@ -76,7 +76,7 @@ function Dashboard() {
       setPinViewMode('visible'); // Reset to visible when closing
     } else {
       // Open popup for new metric
-      setSelectedMetric(metricType);
+    setSelectedMetric(metricType);
       setPinViewMode('visible'); // Reset view mode when opening
     }
   };
@@ -119,7 +119,7 @@ function Dashboard() {
           // isVisible !== false (true or undefined) means it's visible
           const visiblePins = Array.isArray(pins) ? pins.filter(p => p.isVisible !== false) : [];
           const invisiblePins = Array.isArray(pins) ? pins.filter(p => p.isVisible === false) : [];
-          
+
           // Sort by description (case-insensitive, alphabetically)
           const sortedVisiblePins = [...visiblePins].sort((a, b) => {
             const descA = (a.description || '').trim().toLowerCase();
@@ -807,7 +807,7 @@ function Dashboard() {
                 >
                   Waypoints (Invisible Pins) <span>({detailedData.invisible || 0})</span>
                 </button>
-              </div>
+                    </div>
 
               {/* Display selected category */}
               {pinViewMode === 'visible' ? (
@@ -828,7 +828,7 @@ function Dashboard() {
                   ) : (
                     <p className="no-pins">No visible pins</p>
                   )}
-                </div>
+                    </div>
               ) : (
                 <div className="pin-category-section">
                   <h3 className="category-header">
@@ -847,8 +847,8 @@ function Dashboard() {
                   ) : (
                     <p className="no-pins">No invisible pins</p>
                   )}
-                </div>
-              )}
+              </div>
+            )}
             </div>
           </div>
         );
@@ -905,7 +905,7 @@ function Dashboard() {
               {detailedData.campuses.map(campus => (
                 <div key={campus.id} className="campus-item">
                   <div className="campus-header">
-                    <strong>{campus.name}</strong>
+                  <strong>{campus.name}</strong>
                     <div className="campus-pin-counts">
                       <span className="pin-count-badge facilities">
                         Facilities: {campus.facilities || 0}

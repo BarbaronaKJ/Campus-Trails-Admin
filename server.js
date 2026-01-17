@@ -40,6 +40,7 @@ const suggestionsAndFeedbacksRoutes = require('./routes/suggestions_and_feedback
 const notificationsRoutes = require('./routes/notifications');
 const analyticsRoutes = require('./routes/analytics');
 const developersRoutes = require('./routes/developers');
+const facilityReportsRoutes = require('./routes/facility_reports');
 
 app.use('/api/admin/auth', authRoutes);
 app.use('/api/admin/pins', pinsRoutes);

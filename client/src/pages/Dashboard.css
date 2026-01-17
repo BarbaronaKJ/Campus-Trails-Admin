@@ -715,7 +715,7 @@ body:has(.layout.collapsed) .popup-modal {
   padding: 10px;
   max-height: 400px;
   overflow-y: auto;
-}
+  }
 
 .feedback-item {
   padding: 12px;
