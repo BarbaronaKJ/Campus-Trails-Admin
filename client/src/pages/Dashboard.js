@@ -98,7 +98,7 @@ function Dashboard() {
   const fetchDetailedData = async (metricType) => {
     try {
       setDetailedLoading(true);
-      const baseUrl = getApiBaseUrl();
+      const baseUrl = getApiBaseUrl ? getApiBaseUrl() : (process.env.REACT_APP_API_URL || 'http://localhost:5001');
       const token = localStorage.getItem('adminToken');
       const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
 
