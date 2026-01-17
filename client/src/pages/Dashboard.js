@@ -793,45 +793,62 @@ function Dashboard() {
             </div>
 
             <div className="pins-categories">
-              {/* Buildings/Facilities Category */}
-              <div className="pin-category-section">
-                <h3 className="category-header">
-                  Buildings/Facilities (Visible Pins)
-                  <span className="pin-count">({detailedData.visible || 0})</span>
-                </h3>
-                {detailedData.visiblePins && detailedData.visiblePins.length > 0 ? (
-                  <ul className="pin-list">
-                    {detailedData.visiblePins.map(pin => (
-                      <li key={pin._id} className="pin-item">
-                        <strong>{pin.title || 'Untitled'}</strong>
-                        {pin.description && <span className="pin-description"> - {pin.description}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="no-pins">No visible pins</p>
-                )}
+              {/* Toggle Buttons */}
+              <div className="pin-view-toggle">
+                <button 
+                  className={`toggle-btn ${pinViewMode === 'visible' ? 'active' : ''}`}
+                  onClick={() => setPinViewMode('visible')}
+                >
+                  Buildings/Facilities (Visible Pins) <span>({detailedData.visible || 0})</span>
+                </button>
+                <button 
+                  className={`toggle-btn ${pinViewMode === 'invisible' ? 'active' : ''}`}
+                  onClick={() => setPinViewMode('invisible')}
+                >
+                  Waypoints (Invisible Pins) <span>({detailedData.invisible || 0})</span>
+                </button>
               </div>
 
-              {/* Waypoints Category */}
-              <div className="pin-category-section">
-                <h3 className="category-header">
-                  Waypoints (Invisible Pins)
-                  <span className="pin-count">({detailedData.invisible || 0})</span>
-                </h3>
-                {detailedData.invisiblePins && detailedData.invisiblePins.length > 0 ? (
-                  <ul className="pin-list">
-                    {detailedData.invisiblePins.map(pin => (
-                      <li key={pin._id} className="pin-item">
-                        <strong>{pin.title || 'Untitled Waypoint'}</strong>
-                        {pin.description && <span className="pin-description"> - {pin.description}</span>}
-                      </li>
-                    ))}
-                  </ul>
-                ) : (
-                  <p className="no-pins">No invisible pins</p>
-                )}
-              </div>
+              {/* Display selected category */}
+              {pinViewMode === 'visible' ? (
+                <div className="pin-category-section">
+                  <h3 className="category-header">
+                    Buildings/Facilities (Visible Pins)
+                    <span className="pin-count">({detailedData.visible || 0})</span>
+                  </h3>
+                  {detailedData.visiblePins && detailedData.visiblePins.length > 0 ? (
+                    <ul className="pin-list">
+                      {detailedData.visiblePins.map(pin => (
+                        <li key={pin._id} className="pin-item">
+                          <strong>{pin.title || 'Untitled'}</strong>
+                          {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="no-pins">No visible pins</p>
+                  )}
+                </div>
+              ) : (
+                <div className="pin-category-section">
+                  <h3 className="category-header">
+                    Waypoints (Invisible Pins)
+                    <span className="pin-count">({detailedData.invisible || 0})</span>
+                  </h3>
+                  {detailedData.invisiblePins && detailedData.invisiblePins.length > 0 ? (
+                    <ul className="pin-list">
+                      {detailedData.invisiblePins.map(pin => (
+                        <li key={pin._id} className="pin-item">
+                          <strong>{pin.title || 'Untitled Waypoint'}</strong>
+                          {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="no-pins">No invisible pins</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         );
