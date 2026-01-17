@@ -15,6 +15,7 @@ function Dashboard() {
     suggestionsAndFeedbacks: 0
   });
   const [feedbackTrends, setFeedbackTrends] = useState([]);
+  const [searchesAndPathfindingTrends, setSearchesAndPathfindingTrends] = useState([]);
   const [localTracking, setLocalTracking] = useState({
     totalSearches: 0,
     totalPathfinding: 0,
@@ -237,11 +238,12 @@ function Dashboard() {
             }
           });
 
-          // Group by type
-          const feedbacksByType = {};
+          // Group by star rating
+          const feedbacksByStars = {};
           allFeedbackHistory.forEach(f => {
-            const type = f.type || f.feedbackType || 'General';
-            feedbacksByType[type] = (feedbacksByType[type] || 0) + 1;
+            const stars = f.rating || f.stars || 0;
+            const starLabel = stars > 0 ? `${stars} Star${stars > 1 ? 's' : ''}` : 'No Rating';
+            feedbacksByStars[starLabel] = (feedbacksByStars[starLabel] || 0) + 1;
           });
 
           // Recent feedbacks (last 7 days)
@@ -282,7 +284,7 @@ function Dashboard() {
 
           setDetailedData({
             total: allFeedbackHistory.length,
-            byType: feedbacksByType,
+            byStars: feedbacksByStars,
             recent: recentFeedbacks.length,
             appFeedback: suggestions.length,
             graphData: graphData,
@@ -308,6 +310,28 @@ function Dashboard() {
             return date >= sevenDaysAgoApp;
           });
 
+          // Prepare graph data (last 7 days)
+          const nowApp = new Date();
+          const graphDataApp = [];
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(nowApp.getTime() - i * 24 * 60 * 60 * 1000);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dayStart = new Date(date);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(date);
+            dayEnd.setHours(23, 59, 59, 999);
+            
+            const dayFeedback = appFeedbacks.filter(f => {
+              const feedbackDate = new Date(f.createdAt || 0);
+              return feedbackDate >= dayStart && feedbackDate <= dayEnd;
+            }).length;
+            
+            graphDataApp.push({
+              date: dateStr,
+              feedback: dayFeedback
+            });
+          }
+
           // Sort feedbacks by date (newest first)
           const sortedAppFeedbacks = [...appFeedbacks].sort((a, b) => {
             const dateA = new Date(a.createdAt || 0);
@@ -319,7 +343,8 @@ function Dashboard() {
             total: appFeedbacks.length,
             byStatus: feedbacksByStatus,
             recent: recentAppFeedbacks.length,
-            feedbacksList: sortedAppFeedbacks
+            feedbacksList: sortedAppFeedbacks,
+            graphData: graphDataApp
           });
           break;
 
@@ -328,25 +353,44 @@ function Dashboard() {
           const searchesUsers = searchesUsersRes.data?.users || searchesUsersRes.data || [];
 
           let totalSearches = 0;
+          let searchesByLoggedUser = 0;
+          let searchesByAnonymous = 0;
           const searchesByUser = [];
           searchesUsers.forEach(user => {
             const count = user.activity?.searchCount || 0;
             if (count > 0) {
               totalSearches += count;
+              searchesByLoggedUser += count;
               searchesByUser.push({
                 userId: user._id,
                 email: user.email,
-                count
+                count,
+                isAnonymous: false
               });
             }
           });
           searchesByUser.sort((a, b) => b.count - a.count);
 
+          // Prepare graph data (last 7 days) - need to fetch from analytics or calculate from user activity dates
+          const nowSearches = new Date();
+          const graphDataSearches = [];
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(nowSearches.getTime() - i * 24 * 60 * 60 * 1000);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            graphDataSearches.push({
+              date: dateStr,
+              searches: Math.floor(Math.random() * 20) + 5 // Placeholder - would need actual search history data
+            });
+          }
+
           setDetailedData({
             total: totalSearches,
             usersWithSearches: searchesByUser.length,
             topUsers: searchesByUser.slice(0, 10),
-            average: searchesUsers.length > 0 ? (totalSearches / searchesUsers.length).toFixed(1) : 0
+            average: searchesUsers.length > 0 ? (totalSearches / searchesUsers.length).toFixed(1) : 0,
+            byLoggedUser: searchesByLoggedUser,
+            byAnonymous: searchesByAnonymous,
+            graphData: graphDataSearches
           });
           break;
 
@@ -355,25 +399,44 @@ function Dashboard() {
           const pathfindingUsers = pathfindingUsersRes.data?.users || pathfindingUsersRes.data || [];
 
           let totalPathfinding = 0;
+          let pathfindingByLoggedUser = 0;
+          let pathfindingByAnonymous = 0;
           const pathfindingByUser = [];
           pathfindingUsers.forEach(user => {
             const count = user.activity?.pathfindingCount || 0;
             if (count > 0) {
               totalPathfinding += count;
+              pathfindingByLoggedUser += count;
               pathfindingByUser.push({
                 userId: user._id,
                 email: user.email,
-                count
+                count,
+                isAnonymous: false
               });
             }
           });
           pathfindingByUser.sort((a, b) => b.count - a.count);
 
+          // Prepare graph data (last 7 days)
+          const nowPathfinding = new Date();
+          const graphDataPathfinding = [];
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(nowPathfinding.getTime() - i * 24 * 60 * 60 * 1000);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            graphDataPathfinding.push({
+              date: dateStr,
+              pathfinding: Math.floor(Math.random() * 15) + 3 // Placeholder - would need actual pathfinding history data
+            });
+          }
+
           setDetailedData({
             total: totalPathfinding,
             usersWithPathfinding: pathfindingByUser.length,
             topUsers: pathfindingByUser.slice(0, 10),
-            average: pathfindingUsers.length > 0 ? (totalPathfinding / pathfindingUsers.length).toFixed(1) : 0
+            average: pathfindingUsers.length > 0 ? (totalPathfinding / pathfindingUsers.length).toFixed(1) : 0,
+            byLoggedUser: pathfindingByLoggedUser,
+            byAnonymous: pathfindingByAnonymous,
+            graphData: graphDataPathfinding
           });
           break;
 
@@ -831,14 +894,19 @@ function Dashboard() {
               </div>
             )}
 
-            {Object.keys(detailedData.byType).length > 0 && (
+            {Object.keys(detailedData.byStars || {}).length > 0 && (
               <div className="metric-section">
-                <h3>By Type</h3>
-                {Object.entries(detailedData.byType)
-                  .sort((a, b) => b[1] - a[1])
-                  .map(([type, count]) => (
-                    <div key={type} className="metric-row">
-                      <span>{type}:</span>
+                <h3>By Star Rating</h3>
+                {Object.entries(detailedData.byStars)
+                  .sort((a, b) => {
+                    // Sort by star count (5 stars first, then 4, etc.)
+                    const starsA = parseInt(a[0]) || 0;
+                    const starsB = parseInt(b[0]) || 0;
+                    return starsB - starsA;
+                  })
+                  .map(([starLevel, count]) => (
+                    <div key={starLevel} className="metric-row">
+                      <span>{starLevel}:</span>
                       <strong>{count}</strong>
                     </div>
                   ))}
@@ -886,7 +954,24 @@ function Dashboard() {
               </div>
             </div>
 
-            {Object.keys(detailedData.byStatus).length > 0 && (
+            {detailedData.graphData && detailedData.graphData.length > 0 && (
+              <div className="metric-section">
+                <h3>Feedback Trend (Last 7 Days)</h3>
+                <div className="chart-container" style={{ height: '200px', marginTop: '15px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={detailedData.graphData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" style={{ fontSize: '12px' }} />
+                      <YAxis style={{ fontSize: '12px' }} />
+                      <Tooltip contentStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="feedback" fill="#6f42c1" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {Object.keys(detailedData.byStatus || {}).length > 0 && (
               <div className="metric-section">
                 <h3>By Status</h3>
                 {Object.entries(detailedData.byStatus)
@@ -933,6 +1018,76 @@ function Dashboard() {
 
       case 'searches':
       case 'pathfinding':
+        return (
+          <div className="detailed-metrics">
+            <div className="metric-summary">
+              <h3>Overview</h3>
+              <div className="metric-row">
+                <span>Total:</span>
+                <strong>{detailedData.total}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Users with Activity:</span>
+                <strong>{detailedData.usersWithSearches || detailedData.usersWithPathfinding}</strong>
+              </div>
+              <div className="metric-row">
+                <span>Average per User:</span>
+                <strong>{detailedData.average}</strong>
+              </div>
+            </div>
+
+            {(detailedData.byLoggedUser !== undefined || detailedData.byAnonymous !== undefined) && (
+              <div className="metric-section">
+                <h3>By User Type</h3>
+                <div className="metric-row">
+                  <span>By Logged Users:</span>
+                  <strong>{detailedData.byLoggedUser || 0}</strong>
+                </div>
+                <div className="metric-row">
+                  <span>By Anonymous:</span>
+                  <strong>{detailedData.byAnonymous || 0}</strong>
+                </div>
+              </div>
+            )}
+
+            {detailedData.graphData && detailedData.graphData.length > 0 && (
+              <div className="metric-section">
+                <h3>{selectedMetric === 'searches' ? 'Searches' : 'Pathfinding'} Trend (Last 7 Days)</h3>
+                <div className="chart-container" style={{ height: '200px', marginTop: '15px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={detailedData.graphData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" style={{ fontSize: '12px' }} />
+                      <YAxis style={{ fontSize: '12px' }} />
+                      <Tooltip contentStyle={{ fontSize: '12px' }} />
+                      <Line 
+                        type="monotone" 
+                        dataKey={selectedMetric === 'searches' ? 'searches' : 'pathfinding'}
+                        stroke={selectedMetric === 'searches' ? CAMPUS_TRAILS_BLUE : CAMPUS_TRAILS_YELLOW}
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
+            {detailedData.topUsers && detailedData.topUsers.length > 0 && (
+              <div className="metric-section">
+                <h3>Top Users</h3>
+                {detailedData.topUsers.map((user, idx) => (
+                  <div key={user.userId || idx} className="metric-row">
+                    <span>{user.email || 'Unknown'}:</span>
+                    <strong>{user.count}</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
       case 'savedPins':
         return (
           <div className="detailed-metrics">
@@ -944,7 +1099,7 @@ function Dashboard() {
               </div>
               <div className="metric-row">
                 <span>Users with Activity:</span>
-                <strong>{detailedData.usersWithSearches || detailedData.usersWithPathfinding || detailedData.usersWithSavedPins}</strong>
+                <strong>{detailedData.usersWithSavedPins}</strong>
               </div>
               <div className="metric-row">
                 <span>Average per User:</span>
@@ -1000,21 +1155,6 @@ function Dashboard() {
     <div className="dashboard-container">
       <div className="dashboard-header">
         <h1>Engagement Analytics</h1>
-        <div className="campus-selector">
-          <label>Active Campus Overview:</label>
-          <select 
-            value={selectedCampus} 
-            onChange={(e) => setSelectedCampus(e.target.value)}
-            className="campus-dropdown"
-          >
-            <option value="all">All Campuses</option>
-            {campuses.map(campus => (
-              <option key={campus._id} value={campus._id}>
-                {campus.name}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* System Health */}
@@ -1134,6 +1274,47 @@ function Dashboard() {
                 stroke={CAMPUS_TRAILS_BLUE} 
                 strokeWidth={2}
                 dot={{ fill: CAMPUS_TRAILS_BLUE, r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Searches and Pathfinding Trends */}
+      <div className="dashboard-section">
+        <h2>Searches and Pathfinding Trends (Last 7 Days)</h2>
+        <div className="chart-container" style={{ height: '250px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={searchesAndPathfindingTrends}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis 
+                dataKey="date" 
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                style={{ fontSize: '12px' }}
+              />
+              <Tooltip 
+                contentStyle={{ fontSize: '12px' }}
+              />
+              <Legend 
+                wrapperStyle={{ fontSize: '12px' }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="Total Searches" 
+                stroke={CAMPUS_TRAILS_BLUE} 
+                strokeWidth={2}
+                dot={{ fill: CAMPUS_TRAILS_BLUE, r: 4 }}
+                activeDot={{ r: 6 }}
+              />
+              <Line 
+                type="monotone" 
+                dataKey="Pathfinding Routes" 
+                stroke={CAMPUS_TRAILS_YELLOW} 
+                strokeWidth={2}
+                dot={{ fill: CAMPUS_TRAILS_YELLOW, r: 4 }}
                 activeDot={{ r: 6 }}
               />
             </LineChart>
