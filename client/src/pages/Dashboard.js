@@ -124,17 +124,19 @@ function Dashboard() {
             }
             
             // Separate visible (buildings/facilities) from invisible (waypoints)
-            // Treat undefined, null, or true as visible; only false as invisible
-            if (pin.visible === false || pin.visible === 'false') {
+            // Use isVisible field (not visible) - matches Facility Pins management logic
+            // isVisible === false means it's a waypoint
+            // isVisible !== false (true or undefined) means it's visible
+            if (pin.isVisible === false) {
               pinsByCampus[campusName].invisible.push(pin);
             } else {
               pinsByCampus[campusName].visible.push(pin);
             }
           });
 
-          // Calculate accurate counts
-          const visibleCount = pins.filter(p => p.visible !== false && p.visible !== 'false').length;
-          const invisibleCount = pins.filter(p => p.visible === false || p.visible === 'false').length;
+          // Calculate accurate counts - use isVisible field like Facility Pins does
+          const visibleCount = pins.filter(p => p.isVisible !== false).length;
+          const invisibleCount = pins.filter(p => p.isVisible === false).length;
 
           setDetailedData({
             total: pins.length,
