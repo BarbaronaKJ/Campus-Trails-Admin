@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Use environment variable for API URL (set in Vercel/Render)
-const BASE_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+const BASE_API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5001';
 const API_URL = `${BASE_API_URL}/api/admin`;
 
 // Debug: Log the API URL (remove in production)
