@@ -167,37 +167,59 @@ function FeedbacksManagement() {
         display: 'flex', 
         gap: '10px', 
         marginBottom: '20px',
-        borderBottom: '2px solid #e0e0e0'
+        borderBottom: '2px solid #e0e0e0',
+        alignItems: 'center',
+        justifyContent: 'space-between'
       }}>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => setActiveTab('reports')}
+            className="btn"
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'reports' ? '#007bff' : 'transparent',
+              color: activeTab === 'reports' ? '#fff' : '#333',
+              border: 'none',
+              borderBottom: activeTab === 'reports' ? '3px solid #007bff' : '3px solid transparent',
+              cursor: 'pointer',
+              fontWeight: activeTab === 'reports' ? 'bold' : 'normal'
+            }}
+          >
+            Facility Reports ({feedbacks.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('suggestions')}
+            className="btn"
+            style={{
+              padding: '12px 24px',
+              background: activeTab === 'suggestions' ? '#007bff' : 'transparent',
+              color: activeTab === 'suggestions' ? '#fff' : '#333',
+              border: 'none',
+              borderBottom: activeTab === 'suggestions' ? '3px solid #007bff' : '3px solid transparent',
+              cursor: 'pointer',
+              fontWeight: activeTab === 'suggestions' ? 'bold' : 'normal'
+            }}
+          >
+            User App Feedback ({suggestions.length})
+          </button>
+        </div>
         <button
-          onClick={() => setActiveTab('reports')}
-          className="btn"
+          onClick={() => fetchData()}
           style={{
-            padding: '12px 24px',
-            background: activeTab === 'reports' ? '#007bff' : 'transparent',
-            color: activeTab === 'reports' ? '#fff' : '#333',
+            padding: '8px 16px',
+            background: '#28a745',
+            color: 'white',
             border: 'none',
-            borderBottom: activeTab === 'reports' ? '3px solid #007bff' : '3px solid transparent',
+            borderRadius: '4px',
             cursor: 'pointer',
-            fontWeight: activeTab === 'reports' ? 'bold' : 'normal'
+            fontWeight: 'bold',
+            fontSize: '12px'
           }}
+          title="Refresh data from server"
         >
-          Facility Reports ({feedbacks.length})
+          🔄 Refresh
         </button>
-        <button
-          onClick={() => setActiveTab('suggestions')}
-          className="btn"
-          style={{
-            padding: '12px 24px',
-            background: activeTab === 'suggestions' ? '#007bff' : 'transparent',
-            color: activeTab === 'suggestions' ? '#fff' : '#333',
-            border: 'none',
-            borderBottom: activeTab === 'suggestions' ? '3px solid #007bff' : '3px solid transparent',
-            cursor: 'pointer',
-            fontWeight: activeTab === 'suggestions' ? 'bold' : 'normal'
-          }}
-        >
-          User App Feedback ({suggestions.length})
+      </div>
         </button>
       </div>
 
