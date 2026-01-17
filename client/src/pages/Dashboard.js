@@ -797,7 +797,7 @@ function Dashboard() {
               </div>
             </div>
 
-            {Object.keys(detailedData.byCampus).length > 0 && (
+            {detailedData.byCampus && Object.keys(detailedData.byCampus).length > 0 && (
               <div className="pins-by-campus">
                 {/* Toggle Buttons */}
                 <div className="pin-view-toggle">
@@ -816,7 +816,7 @@ function Dashboard() {
                 </div>
 
                 <h3>By Campus</h3>
-                {Object.entries(detailedData.byCampus).map(([campusName, campusData]) => {
+                {Object.entries(detailedData.byCampus || {}).map(([campusName, campusData]) => {
                   const pinsToShow = pinViewMode === 'visible' ? campusData.visible : campusData.invisible;
                   const categoryLabel = pinViewMode === 'visible' ? 'Buildings/Facilities' : 'Waypoints';
                   
