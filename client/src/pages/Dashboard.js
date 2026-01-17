@@ -93,7 +93,7 @@ function Dashboard() {
     // Refresh system health every 30 seconds
     const healthInterval = setInterval(checkSystemHealth, 30000);
     return () => clearInterval(healthInterval);
-  }, []);
+  }, [selectedCampus]);
 
   const fetchDetailedData = async (metricType) => {
     try {
@@ -594,9 +594,12 @@ function Dashboard() {
       const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
       setCampuses(campusesData);
 
-      // Fetch all data - don't filter by campus for main stats (show all)
+      // Build query params
+      const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
+
+      // Fetch all data
       const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
+        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }).then(r => r.json()),
         usersAPI.getAll({ limit: 10000 }),
