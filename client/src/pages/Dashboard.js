@@ -141,7 +141,7 @@ function Dashboard() {
 
           setDetailedData({
             total: pins.length,
-            byCampus: pinsByCampus,
+            byCampus: pinsByCampus || {},
             visible: visibleCount,
             invisible: invisibleCount
           });
@@ -773,8 +773,8 @@ function Dashboard() {
       );
     }
 
-    if (!detailedData) {
-      return <p>No detailed data available.</p>;
+    if (!detailedData || detailedData.error) {
+      return <p>{detailedData?.error || 'No detailed data available.'}</p>;
     }
 
     switch (selectedMetric) {
@@ -988,7 +988,7 @@ function Dashboard() {
             {Object.keys(detailedData.byStars || {}).length > 0 && (
               <div className="metric-section">
                 <h3>By Star Rating</h3>
-                {Object.entries(detailedData.byStars)
+                {Object.entries(detailedData.byStars || {})
                   .sort((a, b) => {
                     // Sort by star count (5 stars first, then 4, etc.)
                     const starsA = parseInt(a[0]) || 0;
@@ -1068,7 +1068,7 @@ function Dashboard() {
             {Object.keys(detailedData.byStatus || {}).length > 0 && (
               <div className="metric-section">
                 <h3>By Status</h3>
-                {Object.entries(detailedData.byStatus)
+                {Object.entries(detailedData.byStatus || {})
                   .sort((a, b) => b[1] - a[1])
                   .map(([status, count]) => (
                     <div key={status} className="metric-row">
