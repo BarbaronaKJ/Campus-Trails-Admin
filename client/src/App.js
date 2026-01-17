@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -9,8 +9,8 @@ import NotificationsManagement from './pages/NotificationsManagement';
 import FeedbacksManagement from './pages/FeedbacksManagement';
 import DevelopersManagement from './pages/DevelopersManagement';
 import FloorPlans from './pages/FloorPlans';
-import MediaLibrary from './pages/MediaLibrary';
 import QRCodeManager from './pages/QRCodeManager';
+import MediaLibrary from './pages/MediaLibrary';
 import SystemSettings from './pages/SystemSettings';
 import ProfileSettings from './pages/ProfileSettings';
 import Layout from './components/Layout';
@@ -42,9 +42,9 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="pins" element={<PinsManagement />} />
         <Route path="floors" element={<FloorPlans />} />
+        <Route path="qrcodes" element={<QRCodeManager />} />
         <Route path="campuses" element={<CampusesManagement />} />
         <Route path="media" element={<MediaLibrary />} />
-        <Route path="qr-codes" element={<QRCodeManager />} />
         <Route path="users" element={<UsersManagement />} />
         <Route path="feedbacks" element={<FeedbacksManagement />} />
         <Route path="notifications" element={<NotificationsManagement />} />

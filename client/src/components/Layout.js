@@ -105,13 +105,13 @@ function Layout() {
           <MenuSection title="Map Management" sectionKey="mapManagement">
             <MenuItem to="/pins" label="Facility Pins" />
             <MenuItem to="/floors" label="Floor Plans" />
+            <MenuItem to="/qrcodes" label="QR Code Manager" />
             <MenuItem to="/campuses" label="Campuses" />
           </MenuSection>
 
           {/* Content & Assets */}
           <MenuSection title="Content & Assets" sectionKey="contentAssets">
             <MenuItem to="/media" label="Media Library" />
-            <MenuItem to="/qr-codes" label="QR Code Manager" />
           </MenuSection>
 
           {/* User & Interaction */}

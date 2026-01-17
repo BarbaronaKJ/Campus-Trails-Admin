@@ -245,6 +245,56 @@ function Dashboard() {
             feedbacksByStars[starLabel] = (feedbacksByStars[starLabel] || 0) + 1;
           });
 
+          // Group by building/facility (pinId/pinTitle)
+          const feedbacksByBuilding = {};
+          allFeedbackHistory.forEach(f => {
+            const buildingKey = f.pinId || f.pinTitle || 'Unknown Building';
+            const buildingName = f.pinTitle || f.pinDescription || `Building ID: ${f.pinId}` || 'Unknown Building';
+            if (!feedbacksByBuilding[buildingKey]) {
+              feedbacksByBuilding[buildingKey] = {
+                buildingId: f.pinId,
+                buildingName: buildingName,
+                totalReports: 0,
+                reports: [],
+                rooms: {} // Group by rooms within this building
+              };
+            }
+            feedbacksByBuilding[buildingKey].totalReports++;
+            feedbacksByBuilding[buildingKey].reports.push(f);
+
+            // Group by room if roomId/roomName exists
+            if (f.roomId || f.roomName) {
+              const roomKey = f.roomId || f.roomName || 'Unknown Room';
+              const roomName = f.roomName || f.roomId || 'Unknown Room';
+              if (!feedbacksByBuilding[buildingKey].rooms[roomKey]) {
+                feedbacksByBuilding[buildingKey].rooms[roomKey] = {
+                  roomId: f.roomId,
+                  roomName: roomName,
+                  floorLevel: f.floorLevel,
+                  floorName: f.floorName,
+                  totalReports: 0,
+                  reports: []
+                };
+              }
+              feedbacksByBuilding[buildingKey].rooms[roomKey].totalReports++;
+              feedbacksByBuilding[buildingKey].rooms[roomKey].reports.push(f);
+            } else {
+              // General building report (no specific room)
+              if (!feedbacksByBuilding[buildingKey].rooms['General']) {
+                feedbacksByBuilding[buildingKey].rooms['General'] = {
+                  roomId: null,
+                  roomName: 'General Building Issue',
+                  floorLevel: null,
+                  floorName: null,
+                  totalReports: 0,
+                  reports: []
+                };
+              }
+              feedbacksByBuilding[buildingKey].rooms['General'].totalReports++;
+              feedbacksByBuilding[buildingKey].rooms['General'].reports.push(f);
+            }
+          });
+
           // Recent feedbacks (last 7 days)
           const sevenDaysAgoFeedback = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
           const recentFeedbacks = allFeedbackHistory.filter(f => {
@@ -284,6 +334,7 @@ function Dashboard() {
           setDetailedData({
             total: allFeedbackHistory.length,
             byStars: feedbacksByStars,
+            byBuilding: feedbacksByBuilding,
             recent: recentFeedbacks.length,
             appFeedback: suggestions.length,
             graphData: graphData,
@@ -979,6 +1030,82 @@ function Dashboard() {
               </div>
             )}
 
+            {Object.keys(detailedData.byBuilding || {}).length > 0 && (
+              <div className="metric-section">
+                <h3>By Building/Facility ({Object.keys(detailedData.byBuilding).length})</h3>
+                {Object.entries(detailedData.byBuilding || {})
+                  .sort((a, b) => b[1].totalReports - a[1].totalReports) // Sort by total reports (highest first)
+                  .map(([buildingKey, buildingData]) => (
+                    <div key={buildingKey} className="building-category" style={{ 
+                      marginBottom: '20px', 
+                      padding: '15px', 
+                      backgroundColor: '#f8f9fa', 
+                      borderRadius: '8px',
+                      border: '1px solid #e0e0e0'
+                    }}>
+                      <div className="building-header" style={{ marginBottom: '10px' }}>
+                        <strong style={{ fontSize: '16px', color: '#333' }}>
+                          {buildingData.buildingName}
+                        </strong>
+                        <span style={{ 
+                          marginLeft: '10px', 
+                          fontSize: '14px', 
+                          color: '#666',
+                          backgroundColor: '#007bff',
+                          color: '#fff',
+                          padding: '4px 8px',
+                          borderRadius: '4px'
+                        }}>
+                          {buildingData.totalReports} {buildingData.totalReports === 1 ? 'Report' : 'Reports'}
+                        </span>
+                      </div>
+                      
+                      {Object.keys(buildingData.rooms || {}).length > 0 && (
+                        <div className="rooms-list" style={{ marginLeft: '15px' }}>
+                          {Object.entries(buildingData.rooms || {})
+                            .sort((a, b) => b[1].totalReports - a[1].totalReports) // Sort rooms by report count
+                            .map(([roomKey, roomData]) => (
+                              <div key={roomKey} className="room-item" style={{
+                                marginTop: '10px',
+                                padding: '10px',
+                                backgroundColor: '#fff',
+                                borderRadius: '6px',
+                                border: '1px solid #ddd'
+                              }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
+                                  <strong style={{ fontSize: '14px', color: '#555' }}>
+                                    {roomData.roomName}
+                                    {roomData.floorName && (
+                                      <span style={{ fontSize: '12px', color: '#888', marginLeft: '8px' }}>
+                                        ({roomData.floorName})
+                                      </span>
+                                    )}
+                                  </strong>
+                                  <span style={{ 
+                                    fontSize: '12px', 
+                                    color: '#666',
+                                    backgroundColor: '#28a745',
+                                    color: '#fff',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    {roomData.totalReports} {roomData.totalReports === 1 ? 'Report' : 'Reports'}
+                                  </span>
+                                </div>
+                                {roomData.reports && roomData.reports.length > 0 && (
+                                  <div style={{ fontSize: '12px', color: '#777', marginTop: '5px' }}>
+                                    Latest: {new Date(roomData.reports[0].date || roomData.reports[0].createdAt || 0).toLocaleDateString()}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </div>
+            )}
+
             {detailedData.reportsList && detailedData.reportsList.length > 0 && (
               <div className="metric-section">
                 <h3>All Reports ({detailedData.reportsList.length})</h3>
@@ -988,17 +1115,38 @@ function Dashboard() {
                     return (
                       <li key={report._id || idx} className="report-item">
                         <div className="report-header">
-                          {reportType && reportType !== 'General' && <strong>{reportType}</strong>}
-                          <span className="report-date">
-                            {new Date(report.date || report.createdAt || 0).toLocaleDateString()}
-                          </span>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                            <div>
+                              {report.pinTitle && (
+                                <strong style={{ fontSize: '14px', color: '#333' }}>{report.pinTitle}</strong>
+                              )}
+                              {report.roomName && (
+                                <span style={{ fontSize: '13px', color: '#555', marginLeft: '8px' }}>
+                                  → {report.roomName}
+                                  {report.floorName && ` (${report.floorName})`}
+                                </span>
+                              )}
+                            </div>
+                            <span className="report-date" style={{ fontSize: '12px', color: '#888' }}>
+                              {new Date(report.date || report.createdAt || 0).toLocaleDateString()}
+                            </span>
+                          </div>
                         </div>
-                        {report.message && (
-                          <p className="report-message">{report.message}</p>
+                        {report.comment && (
+                          <p className="report-message" style={{ marginTop: '8px', fontSize: '13px', color: '#666' }}>
+                            {report.comment}
+                          </p>
                         )}
-                        {report.userEmail && (
-                          <span className="report-user">By: {report.userEmail}</span>
-                        )}
+                        <div style={{ marginTop: '8px', fontSize: '12px', color: '#888' }}>
+                          {report.userEmail && (
+                            <span className="report-user">By: {report.userEmail}</span>
+                          )}
+                          {report.rating && (
+                            <span style={{ marginLeft: '12px' }}>
+                              Rating: {'⭐'.repeat(report.rating)}
+                            </span>
+                          )}
+                        </div>
                       </li>
                     );
                   })}
