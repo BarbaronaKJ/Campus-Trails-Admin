@@ -230,7 +230,11 @@ function FeedbacksManagement() {
                     <tr key={f._id || f.id || `feedback-${index}`} style={{ fontSize: '12px' }}>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.userId?.email || f.userId?.username || 'N/A'}</td>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.pinTitle || f.pinId?.description || f.pinId?.title || 'N/A'}</td>
-                      <td style={{ fontSize: '12px', padding: '8px' }}>{f.roomId || 'N/A'}</td>
+                      <td style={{ fontSize: '12px', padding: '8px' }}>
+                        {f.roomId 
+                          ? `${f.roomId}${f.floorName ? ` (${f.floorName})` : ''}` 
+                          : 'N/A'}
+                      </td>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.feedbackType || 'report'}</td>
                       <td style={{ maxWidth: '250px', wordWrap: 'break-word', fontSize: '12px', padding: '8px' }}>
                         {f.comment || 'N/A'}
