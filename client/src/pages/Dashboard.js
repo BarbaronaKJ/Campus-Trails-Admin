@@ -598,6 +598,34 @@ function Dashboard() {
                   const pinsToShow = pinViewMode === 'visible' ? campusData.visible : campusData.invisible;
                   const categoryLabel = pinViewMode === 'visible' ? 'Buildings/Facilities' : 'Waypoints';
                   
+                  // Sort pins: numeric titles first (numerically), then text titles (alphabetically)
+                  const sortedPins = [...pinsToShow].sort((a, b) => {
+                    const titleA = (a.title || '').trim();
+                    const titleB = (b.title || '').trim();
+                    
+                    // Check if titles are numeric
+                    const isNumericA = /^\d+$/.test(titleA);
+                    const isNumericB = /^\d+$/.test(titleB);
+                    
+                    // If both are numeric, sort numerically
+                    if (isNumericA && isNumericB) {
+                      return parseInt(titleA, 10) - parseInt(titleB, 10);
+                    }
+                    
+                    // If only A is numeric, it comes first
+                    if (isNumericA && !isNumericB) {
+                      return -1;
+                    }
+                    
+                    // If only B is numeric, it comes first
+                    if (!isNumericA && isNumericB) {
+                      return 1;
+                    }
+                    
+                    // Both are text, sort alphabetically (case-insensitive)
+                    return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
+                  });
+                  
                   return (
                     <div key={campusName} className="campus-pins-section">
                       <h4 className="campus-name">{campusName}</h4>
@@ -607,9 +635,9 @@ function Dashboard() {
                           {pinViewMode === 'visible' ? 'Visible' : 'Invisible'} Pins - {categoryLabel}
                           <span className="pin-count">({pinsToShow.length})</span>
                         </h5>
-                        {pinsToShow.length > 0 ? (
+                        {sortedPins.length > 0 ? (
                           <ul className="pin-list">
-                            {pinsToShow.map(pin => (
+                            {sortedPins.map(pin => (
                               <li key={pin._id} className="pin-item">
                                 <strong>{pin.title || (pinViewMode === 'visible' ? 'Untitled' : 'Untitled Waypoint')}</strong>
                                 {pin.description && <span className="pin-description"> - {pin.description}</span>}
