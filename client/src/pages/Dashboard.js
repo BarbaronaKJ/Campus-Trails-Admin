@@ -104,9 +104,13 @@ function Dashboard() {
 
       switch (metricType) {
         case 'pins':
-          const pinsRes = await fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
+          const pinsResponse = await fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
             headers: { 'Authorization': `Bearer ${token}` }
-          }).then(r => r.json());
+          });
+          if (!pinsResponse.ok) {
+            throw new Error(`Failed to fetch pins: ${pinsResponse.status} ${pinsResponse.statusText}`);
+          }
+          const pinsRes = await pinsResponse.json();
           const pins = pinsRes.pins || pinsRes.data || [];
           
           // Organize pins by campus, then by visible/invisible
