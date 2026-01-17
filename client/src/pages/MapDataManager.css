@@ -72,6 +72,15 @@
   background-color: #c0392b;
 }
 
+.button-warning {
+  background-color: #f39c12;
+  color: white;
+}
+
+.button-warning:hover {
+  background-color: #d68910;
+}
+
 .input {
   width: 100%;
   padding: 10px;
@@ -612,6 +621,8 @@
 /* Pin Markers on Map */
 .map-pin-marker {
   transition: all 0.2s ease;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 .map-pin-marker:hover .pin-marker-circle {
@@ -621,6 +632,8 @@
 .pin-marker-circle {
   transition: all 0.2s ease;
   filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 /* SVG-based Tooltip */

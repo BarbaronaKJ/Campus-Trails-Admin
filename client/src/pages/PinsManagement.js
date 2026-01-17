@@ -23,7 +23,7 @@ function PinsManagement() {
   const [newPinData, setNewPinData] = useState({
     title: '',
     description: '',
-    category: ['Other'],
+    category: 'Other',
     campusId: '',
     x: 0,
     y: 0,
@@ -46,42 +46,13 @@ function PinsManagement() {
   const [pinSelectionSearch, setPinSelectionSearch] = useState('')
   const [pinSelectionViewMode, setPinSelectionViewMode] = useState('all') // all, visible, waypoints
   
-  // Pending connections state (for batch confirmation)
-  const [pendingNeighbors, setPendingNeighbors] = useState([])
-  const [isSavingConnections, setIsSavingConnections] = useState(false)
-  
-  // Map click mode for adding new pin
+  // Map click mode for adding new pin or moving existing pin
   const [mapClickMode, setMapClickMode] = useState(false) // true when waiting for map click to set coordinates
-  
-  // Map zoom and pan are disabled
-  
-  // Available categories
-  const availableCategories = [
-    'Commercial Zone',
-    'Admin/Operation Zone',
-    'Academic Core Zone',
-    'Auxillary Services Zone',
-    'Dining',
-    'Comfort Rooms',
-    'Research Zones',
-    'Clinic',
-    'Parking',
-    'Security',
-    'Other'
-  ]
+  const [pinBeingMoved, setPinBeingMoved] = useState(null) // the pin being moved (if any)
 
   useEffect(() => {
     fetchData()
   }, [])
-  
-  // Initialize pending neighbors when modal opens
-  useEffect(() => {
-    if (selectedPin && selectedPin.neighbors) {
-      setPendingNeighbors([...selectedPin.neighbors])
-    } else if (selectedPin) {
-      setPendingNeighbors([])
-    }
-  }, [selectedPin])
 
   const fetchData = async () => {
     try {
@@ -169,9 +140,7 @@ function PinsManagement() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       const title = (pin.title || '').toLowerCase()
-      // Handle both array and string categories for backward compatibility
-      const pinCategories = Array.isArray(pin.category) ? pin.category : (pin.category ? [pin.category] : [])
-      const category = pinCategories.join(' ').toLowerCase()
+      const category = (pin.category || '').toLowerCase()
       const id = String(pin._id || pin.id).toLowerCase()
       if (!title.includes(query) && !category.includes(query) && !id.includes(query)) {
         return false
@@ -191,9 +160,7 @@ function PinsManagement() {
     if (pinSelectionSearch) {
       const query = pinSelectionSearch.toLowerCase()
       const title = (pin.title || '').toLowerCase()
-      // Handle both array and string categories for backward compatibility
-      const pinCategories = Array.isArray(pin.category) ? pin.category : (pin.category ? [pin.category] : [])
-      const category = pinCategories.join(' ').toLowerCase()
+      const category = (pin.category || '').toLowerCase()
       const id = String(pin._id || pin.id).toLowerCase()
       if (!title.includes(query) && !category.includes(query) && !id.includes(query)) {
         return false
@@ -230,21 +197,18 @@ function PinsManagement() {
       setError('Please select a campus')
       return
     }
-    if (!Array.isArray(newPinData.category) || newPinData.category.length === 0) {
-      setError('Please select at least one category')
-      return
-    }
 
     try {
       const response = await pinsAPI.create(newPinData)
 
       if (response.data && (response.data.success || response.data.pin)) {
+        const createdPin = response.data.pin || response.data.data || response.data
         setSuccess('Pin created successfully!')
         setShowNewPinForm(false)
         setNewPinData({
           title: '',
           description: '',
-          category: ['Other'],
+          category: 'Other',
           campusId: '',
           x: 0,
           y: 0,
@@ -340,7 +304,7 @@ function PinsManagement() {
   }
 
   const handleDeletePin = async (pinId) => {
-    if (!window.confirm('Are you sure you want to delete this pin? This will also remove it from all neighbor connections. This action cannot be undone.')) {
+    if (!confirm('Are you sure you want to delete this pin? This will also remove it from all neighbor connections. This action cannot be undone.')) {
       return
     }
 
@@ -526,11 +490,7 @@ function PinsManagement() {
                         {pin.isVisible === false ? '🔍 Waypoint' : '👁️ Visible'}
                       </span>
                     </td>
-                    <td>
-                      {Array.isArray(pin.category) 
-                        ? pin.category.join(', ') 
-                        : (pin.category || 'N/A')}
-                    </td>
+                    <td>{pin.category || 'N/A'}</td>
                     <td className="coordinates">
                       ({pin.x?.toFixed(2)}, {pin.y?.toFixed(2)})
                     </td>
@@ -551,14 +511,7 @@ function PinsManagement() {
                         <button 
                           className="button button-secondary button-small"
                           onClick={() => {
-                            // Convert category to array for backward compatibility
-                            const pinWithArrayCategory = {
-                              ...pin,
-                              category: Array.isArray(pin.category) 
-                                ? pin.category 
-                                : (pin.category ? [pin.category] : ['Other'])
-                            }
-                            setEditPinData(pinWithArrayCategory)
+                            setEditPinData(pin)
                             setShowEditPinForm(true)
                           }}
                           title="Edit Pin"
@@ -694,7 +647,11 @@ function PinsManagement() {
           <div className="map-viewer-container">
             <div className="map-viewer-info">
               {mapClickMode ? (
-                <p style={{ color: '#ff9800', fontWeight: 'bold' }}>Click on the map to set pin coordinates...</p>
+                <p style={{ color: '#ff9800', fontWeight: 'bold' }}>
+                  {pinBeingMoved 
+                    ? `Click on the map to move "${pinBeingMoved.title || 'Waypoint'}" to a new location...` 
+                    : 'Click on the map to set pin coordinates...'}
+                </p>
               ) : (
                 <p>Click on pins to view details. Hover to see coordinates. Only showing {filteredPins.length} filtered pins.</p>
               )}
@@ -759,12 +716,22 @@ function PinsManagement() {
                   const pixelY = Math.round(relativeY / rect.height * 1310)
                   
                   if (mapClickMode) {
-                    // Set coordinates for new pin
-                    setNewPinData({...newPinData, x: pixelX, y: pixelY})
-                    setMapClickMode(false)
-                    setShowNewPinForm(true)
-                    setSuccess(`Coordinates set: X: ${pixelX}, Y: ${pixelY}`)
-                    setTimeout(() => setSuccess(''), 3000)
+                    if (pinBeingMoved) {
+                      // Moving an existing pin
+                      setEditPinData({...pinBeingMoved, x: pixelX, y: pixelY})
+                      setShowEditPinForm(true)
+                      setMapClickMode(false)
+                      setPinBeingMoved(null)
+                      setSuccess(`Pin moved to: X: ${pixelX}, Y: ${pixelY}. Click "Update Pin" to save changes.`)
+                      setTimeout(() => setSuccess(''), 5000)
+                    } else {
+                      // Creating a new pin
+                      setNewPinData({...newPinData, x: pixelX, y: pixelY})
+                      setMapClickMode(false)
+                      setShowNewPinForm(true)
+                      setSuccess(`Coordinates set: X: ${pixelX}, Y: ${pixelY}`)
+                      setTimeout(() => setSuccess(''), 3000)
+                    }
                   } else {
                     console.log(`Clicked coordinates: x: ${pixelX}, y: ${pixelY}`)
                   }
@@ -777,8 +744,8 @@ function PinsManagement() {
                   width: '100%', 
                   height: 'auto', 
                   display: 'block', 
-                  maxWidth: '1200px',
-                  touchAction: 'none',
+                  maxWidth: '1200px', 
+                  touchAction: 'none', 
                   userSelect: 'none',
                   WebkitUserSelect: 'none',
                   MozUserSelect: 'none',
@@ -791,6 +758,10 @@ function PinsManagement() {
                   OTransform: 'none'
                 }}
                 preserveAspectRatio="xMidYMid meet"
+                onContextMenu={(e) => {
+                  e.preventDefault()
+                  return false
+                }}
                 onWheel={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
@@ -824,10 +795,6 @@ function PinsManagement() {
                 onDragStart={(e) => {
                   e.preventDefault()
                   e.stopPropagation()
-                  return false
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault()
                   return false
                 }}
               >
@@ -977,74 +944,23 @@ function PinsManagement() {
                 />
               </div>
 
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="label">Categories * (Select multiple)</label>
-                <div style={{ 
-                  border: '1px solid #ddd', 
-                  borderRadius: '4px', 
-                  padding: '12px', 
-                  maxHeight: '200px', 
-                  overflowY: 'auto',
-                  background: '#fff',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}>
-                  {availableCategories.map(category => {
-                    const isSelected = Array.isArray(newPinData.category) 
-                      ? newPinData.category.includes(category)
-                      : newPinData.category === category
-                    return (
-                      <label 
-                        key={category} 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          marginBottom: '10px', 
-                          cursor: 'pointer',
-                          width: '100%',
-                          padding: '4px 0'
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const currentCategories = Array.isArray(newPinData.category) 
-                              ? [...newPinData.category] 
-                              : (newPinData.category ? [newPinData.category] : [])
-                            
-                            if (e.target.checked) {
-                              if (!currentCategories.includes(category)) {
-                                setNewPinData({...newPinData, category: [...currentCategories, category]})
-                              }
-                            } else {
-                              setNewPinData({...newPinData, category: currentCategories.filter(c => c !== category)})
-                            }
-                          }}
-                          style={{ 
-                            marginRight: '10px', 
-                            cursor: 'pointer',
-                            width: '18px',
-                            height: '18px',
-                            flexShrink: 0
-                          }}
-                        />
-                        <span style={{ flex: 1, userSelect: 'none' }}>{category}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-                {Array.isArray(newPinData.category) && newPinData.category.length === 0 && (
-                  <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
-                    ⚠️ Please select at least one category.
-                  </small>
-                )}
-                <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-                  💡 Tip: You can select multiple categories for each pin.
-                </small>
-              </div>
-              
               <div className="form-row">
+                <div className="form-group">
+                  <label className="label">Category *</label>
+                  <select
+                    className="input"
+                    value={newPinData.category}
+                    onChange={(e) => setNewPinData({...newPinData, category: e.target.value})}
+                    required
+                  >
+                    <option value="Academic">Academic</option>
+                    <option value="Administration">Administration</option>
+                    <option value="Facilities">Facilities</option>
+                    <option value="Services">Services</option>
+                    <option value="Recreational">Recreational</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
                 <div className="form-group">
                   <label className="label">Campus *</label>
@@ -1154,20 +1070,7 @@ function PinsManagement() {
             </div>
             <form onSubmit={(e) => {
               e.preventDefault()
-              // Validate categories
-              const categoriesToSave = Array.isArray(editPinData.category) 
-                ? editPinData.category 
-                : (editPinData.category ? [editPinData.category] : ['Other'])
-              
-              if (categoriesToSave.length === 0) {
-                setError('Please select at least one category')
-                return
-              }
-              
-              handleUpdatePin(editPinData._id || editPinData.id, {
-                ...editPinData,
-                category: categoriesToSave
-              })
+              handleUpdatePin(editPinData._id || editPinData.id, editPinData)
               setShowEditPinForm(false)
             }}>
               <div className="form-group">
@@ -1208,77 +1111,23 @@ function PinsManagement() {
                 />
               </div>
 
-              <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                <label className="label">Categories * (Select multiple)</label>
-                <div style={{ 
-                  border: '1px solid #ddd', 
-                  borderRadius: '4px', 
-                  padding: '12px', 
-                  maxHeight: '200px', 
-                  overflowY: 'auto',
-                  background: '#fff',
-                  width: '100%',
-                  boxSizing: 'border-box'
-                }}>
-                  {availableCategories.map(category => {
-                    // Handle backward compatibility: convert string to array
-                    const currentCategories = Array.isArray(editPinData.category) 
-                      ? editPinData.category 
-                      : (editPinData.category ? [editPinData.category] : [])
-                    const isSelected = currentCategories.includes(category)
-                    
-                    return (
-                      <label 
-                        key={category} 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          marginBottom: '10px', 
-                          cursor: 'pointer',
-                          width: '100%',
-                          padding: '4px 0'
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={(e) => {
-                            const currentCats = Array.isArray(editPinData.category) 
-                              ? [...editPinData.category] 
-                              : (editPinData.category ? [editPinData.category] : [])
-                            
-                            if (e.target.checked) {
-                              if (!currentCats.includes(category)) {
-                                setEditPinData({...editPinData, category: [...currentCats, category]})
-                              }
-                            } else {
-                              setEditPinData({...editPinData, category: currentCats.filter(c => c !== category)})
-                            }
-                          }}
-                          style={{ 
-                            marginRight: '10px', 
-                            cursor: 'pointer',
-                            width: '18px',
-                            height: '18px',
-                            flexShrink: 0
-                          }}
-                        />
-                        <span style={{ flex: 1, userSelect: 'none' }}>{category}</span>
-                      </label>
-                    )
-                  })}
-                </div>
-                {Array.isArray(editPinData.category) && editPinData.category.length === 0 && (
-                  <small style={{ color: '#dc3545', display: 'block', marginTop: '5px' }}>
-                    ⚠️ Please select at least one category.
-                  </small>
-                )}
-                <small style={{ color: '#666', fontSize: '12px', display: 'block', marginTop: '5px' }}>
-                  💡 Tip: You can select multiple categories for each pin.
-                </small>
-              </div>
-              
               <div className="form-row">
+                <div className="form-group">
+                  <label className="label">Category *</label>
+                  <select
+                    className="input"
+                    value={editPinData.category}
+                    onChange={(e) => setEditPinData({...editPinData, category: e.target.value})}
+                    required
+                  >
+                    <option value="Academic">Academic</option>
+                    <option value="Administration">Administration</option>
+                    <option value="Facilities">Facilities</option>
+                    <option value="Services">Services</option>
+                    <option value="Recreational">Recreational</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
 
                 <div className="form-group">
                   <label className="label">Campus *</label>
@@ -1471,22 +1320,32 @@ function PinsManagement() {
 
       {/* Neighbors Manager Modal */}
       {selectedPin && (
-        <div className="modal-overlay" onClick={() => {
-          setSelectedPin(null)
-          setPendingNeighbors([])
-        }}>
+        <div className="modal-overlay" onClick={() => setSelectedPin(null)}>
           <div className="modal-content large" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Manage Connections: {selectedPin.title || 'Waypoint'}</h2>
-              <button 
-                className="close-button"
-                onClick={() => {
-                  setSelectedPin(null)
-                  setPendingNeighbors([])
-                }}
-              >
-                ×
-              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  className="button button-warning"
+                  onClick={() => {
+                    setPinBeingMoved(selectedPin)
+                    setMapClickMode(true)
+                    setShowMapViewer(true)
+                    setSelectedPin(null)
+                    setSuccess('Click on the map to move this pin...')
+                    setTimeout(() => setSuccess(''), 3000)
+                  }}
+                  title="Move this pin to a new location on the map"
+                >
+                  Move Pin
+                </button>
+                <button 
+                  className="close-button"
+                  onClick={() => setSelectedPin(null)}
+                >
+                  ×
+                </button>
+              </div>
             </div>
             
             {/* Search bar for pin selection */}
@@ -1526,64 +1385,11 @@ function PinsManagement() {
               </div>
             </div>
             
-            {/* Confirmation Button */}
-            <div style={{ 
-              padding: '15px', 
-              borderBottom: '1px solid #ddd', 
-              backgroundColor: '#f0f7ff',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <div>
-                <strong style={{ color: '#2c3e50' }}>Pending Connections: {pendingNeighbors.length || selectedPin.neighbors?.length || 0}</strong>
-                {pendingNeighbors.length !== (selectedPin.neighbors?.length || 0) && (
-                  <span style={{ 
-                    marginLeft: '10px', 
-                    color: '#ff9800', 
-                    fontSize: '12px',
-                    fontWeight: 'bold'
-                  }}>
-                    (Unsaved changes)
-                  </span>
-                )}
-              </div>
-              <button
-                type="button"
-                className="button button-primary"
-                disabled={isSavingConnections || (pendingNeighbors.length === (selectedPin.neighbors?.length || 0) && 
-                  JSON.stringify([...pendingNeighbors].sort()) === JSON.stringify([...(selectedPin.neighbors || [])].sort()))}
-                onClick={async (e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  setIsSavingConnections(true)
-                  try {
-                    await handleUpdateNeighbors(selectedPin._id || selectedPin.id, pendingNeighbors)
-                    await fetchData()
-                    // Update selectedPin after successful update
-                    const updatedPin = pins.find(p => String(p._id || p.id) === String(selectedPin._id || selectedPin.id))
-                    if (updatedPin) {
-                      setSelectedPin(updatedPin)
-                      setPendingNeighbors([...updatedPin.neighbors])
-                    }
-                    setSuccess('Connections saved successfully!')
-                    setTimeout(() => setSuccess(''), 3000)
-                  } catch (error) {
-                    setError('Failed to save connections. Please try again.')
-                  } finally {
-                    setIsSavingConnections(false)
-                  }
-                }}
-              >
-                {isSavingConnections ? 'Saving...' : 'Confirm Connections'}
-              </button>
-            </div>
-            
             <div className="neighbors-manager">
               <div className="current-neighbors">
-                <h3>Current Connections ({pendingNeighbors.length || selectedPin.neighbors?.length || 0})</h3>
+                <h3>Current Connections ({selectedPin.neighbors?.length || 0})</h3>
                 <div className="neighbors-list">
-                  {(pendingNeighbors.length > 0 ? pendingNeighbors : selectedPin.neighbors || []).map((neighborId, idx) => {
+                  {selectedPin.neighbors?.map((neighborId, idx) => {
                     // Find neighbor by id field (not _id) - pathfinding uses id
                     const neighborIdStr = String(neighborId)
                     const neighbor = pins.find(p => {
@@ -1595,15 +1401,20 @@ function PinsManagement() {
                       <div key={`neighbor-${neighborId}-${idx}`} className="neighbor-item">
                         <span>{neighbor?.title || `Pin ${neighborId}`} (ID: {neighbor?.id || neighborId})</span>
                         <button 
-                          type="button"
                           className="button button-danger button-small"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
-                            // Filter out the neighbor using string comparison (update pending state)
-                            const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
-                            const newNeighbors = currentNeighbors.filter(id => String(id) !== String(neighborId))
-                            setPendingNeighbors(newNeighbors)
+                          onClick={async () => {
+                            // Filter out the neighbor using string comparison
+                            const newNeighbors = selectedPin.neighbors.filter(id => String(id) !== String(neighborId))
+                            await handleUpdateNeighbors(selectedPin._id || selectedPin.id, newNeighbors)
+                            // Refresh data to get updated neighbors from both pins (bidirectional removal)
+                            await fetchData()
+                            // Update selectedPin after successful update
+                            const updatedPin = pins.find(p => String(p._id || p.id) === String(selectedPin._id || selectedPin.id))
+                            if (updatedPin) {
+                              setSelectedPin(updatedPin)
+                            } else {
+                              setSelectedPin({...selectedPin, neighbors: newNeighbors})
+                            }
                           }}
                         >
                           Remove
@@ -1611,7 +1422,7 @@ function PinsManagement() {
                       </div>
                     )
                   })}
-                  {((pendingNeighbors.length > 0 ? pendingNeighbors : selectedPin.neighbors || []).length === 0) && (
+                  {(!selectedPin.neighbors || selectedPin.neighbors.length === 0) && (
                     <p className="no-neighbors">No connections yet</p>
                   )}
                 </div>
@@ -1621,8 +1432,7 @@ function PinsManagement() {
                 <h3>Available Pins ({filteredPinsForSelection.filter(p => {
                   const pinId = String(p.id || p._id)
                   const selectedId = String(selectedPin.id || selectedPin._id)
-                  const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
-                  const isConnected = currentNeighbors.some(n => String(n) === pinId)
+                  const isConnected = selectedPin.neighbors?.some(n => String(n) === pinId)
                   return pinId !== selectedId && !isConnected
                 }).length})</h3>
                 <div className="available-pins-list">
@@ -1632,8 +1442,7 @@ function PinsManagement() {
                       const pinId = String(p.id || p._id)
                       const selectedId = String(selectedPin.id || selectedPin._id)
                       // Check if already connected (compare as strings using id)
-                      const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
-                      const isConnected = currentNeighbors.some(n => String(n) === pinId)
+                      const isConnected = selectedPin.neighbors?.some(n => String(n) === pinId)
                       return pinId !== selectedId && !isConnected
                     })
                     .map(pin => (
@@ -1648,16 +1457,21 @@ function PinsManagement() {
                           </small>
                         </div>
                         <button 
-                          type="button"
                           className="button button-success button-small"
-                          onClick={(e) => {
-                            e.preventDefault()
-                            e.stopPropagation()
+                          onClick={async () => {
                             // Use pin.id (not _id) for pathfinding connections
                             const pinId = pin.id || pin._id
-                            const currentNeighbors = pendingNeighbors.length > 0 ? pendingNeighbors : (selectedPin.neighbors || [])
-                            const newNeighbors = [...currentNeighbors, pinId]
-                            setPendingNeighbors(newNeighbors)
+                            const newNeighbors = [...(selectedPin.neighbors || []), pinId]
+                            await handleUpdateNeighbors(selectedPin._id || selectedPin.id, newNeighbors)
+                            // Refresh data to get updated neighbors from both pins (bidirectional connection)
+                            await fetchData()
+                            // Update selectedPin after successful update
+                            const updatedPin = pins.find(p => String(p._id || p.id) === String(selectedPin._id || selectedPin.id))
+                            if (updatedPin) {
+                              setSelectedPin(updatedPin)
+                            } else {
+                              setSelectedPin({...selectedPin, neighbors: newNeighbors})
+                            }
                           }}
                         >
                           Connect
