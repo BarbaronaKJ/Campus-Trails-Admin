@@ -304,7 +304,7 @@ function PinsManagement() {
   }
 
   const handleDeletePin = async (pinId) => {
-    if (!confirm('Are you sure you want to delete this pin? This will also remove it from all neighbor connections. This action cannot be undone.')) {
+    if (!window.confirm('Are you sure you want to delete this pin? This will also remove it from all neighbor connections. This action cannot be undone.')) {
       return
     }
 
