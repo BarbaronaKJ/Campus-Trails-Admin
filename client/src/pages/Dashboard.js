@@ -1032,8 +1032,9 @@ function Dashboard() {
                           <span className="feedback-user">By: {feedback.userEmail}</span>
                         )}
                       </div>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
