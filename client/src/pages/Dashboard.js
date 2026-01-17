@@ -349,14 +349,16 @@ function Dashboard() {
           break;
 
         case 'searches':
+          const baseUrl = getApiBaseUrl();
+          const token = localStorage.getItem('adminToken');
           const [searchesUsersRes, analyticsSearchesRes] = await Promise.all([
             usersAPI.getAll({ limit: 10000 }),
             fetch(`${baseUrl}/api/analytics/stats`, {
               headers: { 'Authorization': `Bearer ${token}` }
-            }).then(r => r.json()).catch(() => ({ analytics: null }))
+            }).then(r => r.json()).catch(() => ({ success: false, data: null }))
           ]);
           const searchesUsers = searchesUsersRes.data?.users || searchesUsersRes.data || [];
-          const analyticsData = analyticsSearchesRes.analytics || analyticsSearchesRes.data || null;
+          const analyticsData = analyticsSearchesRes.success ? analyticsSearchesRes.data : null;
 
           let totalSearches = 0;
           let searchesByLoggedUser = 0;
@@ -380,8 +382,9 @@ function Dashboard() {
           searchesByUser.sort((a, b) => b.count - a.count);
 
           // Count anonymous searches from Analytics collection
-          if (analyticsData && analyticsData.searches && Array.isArray(analyticsData.searches)) {
-            searchesByAnonymous = analyticsData.searches.length;
+          if (analyticsData && analyticsData.recentSearches && Array.isArray(analyticsData.recentSearches)) {
+            // Use totalSearches from analytics for all-time count, or recentSearches.length for recent
+            searchesByAnonymous = analyticsData.totalSearches || analyticsData.recentSearches.length || 0;
             totalSearches += searchesByAnonymous;
           }
 
@@ -398,8 +401,8 @@ function Dashboard() {
             
             // Count searches from analytics for this day
             let daySearches = 0;
-            if (analyticsData && analyticsData.searches) {
-              daySearches = analyticsData.searches.filter(s => {
+            if (analyticsData && analyticsData.recentSearches) {
+              daySearches = analyticsData.recentSearches.filter(s => {
                 const searchDate = new Date(s.timestamp || s.createdAt || 0);
                 return searchDate >= dayStart && searchDate <= dayEnd;
               }).length;
@@ -427,14 +430,16 @@ function Dashboard() {
           break;
 
         case 'pathfinding':
+          const baseUrlPathfinding = getApiBaseUrl();
+          const tokenPathfinding = localStorage.getItem('adminToken');
           const [pathfindingUsersRes, analyticsPathfindingRes] = await Promise.all([
             usersAPI.getAll({ limit: 10000 }),
-            fetch(`${baseUrl}/api/analytics/stats`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            }).then(r => r.json()).catch(() => ({ analytics: null }))
+            fetch(`${baseUrlPathfinding}/api/analytics/stats`, {
+              headers: { 'Authorization': `Bearer ${tokenPathfinding}` }
+            }).then(r => r.json()).catch(() => ({ success: false, data: null }))
           ]);
           const pathfindingUsers = pathfindingUsersRes.data?.users || pathfindingUsersRes.data || [];
-          const analyticsPathfindingData = analyticsPathfindingRes.analytics || analyticsPathfindingRes.data || null;
+          const analyticsPathfindingData = analyticsPathfindingRes.success ? analyticsPathfindingRes.data : null;
 
           let totalPathfinding = 0;
           let pathfindingByLoggedUser = 0;
@@ -458,8 +463,9 @@ function Dashboard() {
           pathfindingByUser.sort((a, b) => b.count - a.count);
 
           // Count anonymous pathfinding from Analytics collection
-          if (analyticsPathfindingData && analyticsPathfindingData.pathfindingRoutes && Array.isArray(analyticsPathfindingData.pathfindingRoutes)) {
-            pathfindingByAnonymous = analyticsPathfindingData.pathfindingRoutes.length;
+          if (analyticsPathfindingData && analyticsPathfindingData.recentRoutes && Array.isArray(analyticsPathfindingData.recentRoutes)) {
+            // Use totalPathfindingRoutes from analytics for all-time count, or recentRoutes.length for recent
+            pathfindingByAnonymous = analyticsPathfindingData.totalPathfindingRoutes || analyticsPathfindingData.recentRoutes.length || 0;
             totalPathfinding += pathfindingByAnonymous;
           }
 
@@ -476,8 +482,8 @@ function Dashboard() {
             
             // Count pathfinding from analytics for this day
             let dayPathfinding = 0;
-            if (analyticsPathfindingData && analyticsPathfindingData.pathfindingRoutes) {
-              dayPathfinding = analyticsPathfindingData.pathfindingRoutes.filter(r => {
+            if (analyticsPathfindingData && analyticsPathfindingData.recentRoutes) {
+              dayPathfinding = analyticsPathfindingData.recentRoutes.filter(r => {
                 const routeDate = new Date(r.timestamp || r.createdAt || 0);
                 return routeDate >= dayStart && routeDate <= dayEnd;
               }).length;
