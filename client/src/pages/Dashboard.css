@@ -227,12 +227,17 @@
 .popup-overlay {
   position: fixed;
   top: 0;
-  left: 0;
+  left: 240px;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 998;
+  z-index: 2000;
   animation: fadeIn 0.3s ease;
+}
+
+.layout.collapsed ~ .popup-overlay,
+.layout.collapsed .popup-overlay {
+  left: 60px;
 }
 
 @keyframes fadeIn {
@@ -247,15 +252,15 @@
 .popup-modal {
   position: fixed;
   top: 50%;
-  left: 50%;
+  left: calc(240px + (100vw - 240px) / 2);
   transform: translate(-50%, -50%);
-  width: 95%;
-  max-width: 1200px;
+  width: calc(95vw - 240px);
+  max-width: min(1200px, calc(100vw - 280px));
   max-height: 90vh;
   background: white;
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  z-index: 999;
+  z-index: 2001;
   display: flex;
   flex-direction: column;
   animation: popupSlideIn 0.3s ease;
@@ -270,6 +275,19 @@
     opacity: 1;
     transform: translate(-50%, -50%);
   }
+}
+
+/* Adjust popup for collapsed sidebar */
+.layout.collapsed ~ .popup-overlay,
+body:has(.layout.collapsed) .popup-overlay {
+  left: 60px;
+}
+
+.layout.collapsed ~ .popup-modal,
+body:has(.layout.collapsed) .popup-modal {
+  left: calc(60px + (100vw - 60px) / 2);
+  width: calc(95vw - 60px);
+  max-width: min(1200px, calc(100vw - 100px));
 }
 
 .popup-header {
