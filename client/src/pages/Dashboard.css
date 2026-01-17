@@ -248,8 +248,8 @@
 .popup-modal {
   position: fixed;
   top: 50%;
-  left: 50%;
-  transform: translate(calc(-50% + 120px), -50%);
+  left: calc(240px + (100vw - 240px) / 2);
+  transform: translate(-50%, -50%);
   width: calc(95vw - 240px);
   max-width: calc(1200px - 240px);
   max-height: 90vh;
@@ -265,11 +265,11 @@
 @keyframes popupSlideIn {
   from {
     opacity: 0;
-    transform: translate(calc(-50% + 120px), -45%);
+    transform: translate(-50%, -45%);
   }
   to {
     opacity: 1;
-    transform: translate(calc(-50% + 120px), -50%);
+    transform: translate(-50%, -50%);
   }
 }
 
@@ -279,21 +279,9 @@ body:has(.layout.collapsed) .popup-overlay {
 }
 
 body:has(.layout.collapsed) .popup-modal {
-  transform: translate(calc(-50% + 30px), -50%);
+  left: calc(60px + (100vw - 60px) / 2);
   width: calc(95vw - 60px);
   max-width: calc(1200px - 60px);
-  animation: popupSlideInCollapsed 0.3s ease;
-}
-
-@keyframes popupSlideInCollapsed {
-  from {
-    opacity: 0;
-    transform: translate(calc(-50% + 30px), -45%);
-  }
-  to {
-    opacity: 1;
-    transform: translate(calc(-50% + 30px), -50%);
-  }
 }
 
 .popup-header {
