@@ -349,13 +349,21 @@ function Dashboard() {
           break;
 
         case 'searches':
-          const searchesUsersRes = await usersAPI.getAll({ limit: 10000 });
+          const [searchesUsersRes, analyticsSearchesRes] = await Promise.all([
+            usersAPI.getAll({ limit: 10000 }),
+            fetch(`${baseUrl}/api/analytics/stats`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }).then(r => r.json()).catch(() => ({ analytics: null }))
+          ]);
           const searchesUsers = searchesUsersRes.data?.users || searchesUsersRes.data || [];
+          const analyticsData = analyticsSearchesRes.analytics || analyticsSearchesRes.data || null;
 
           let totalSearches = 0;
           let searchesByLoggedUser = 0;
           let searchesByAnonymous = 0;
           const searchesByUser = [];
+          
+          // Count searches from logged users
           searchesUsers.forEach(user => {
             const count = user.activity?.searchCount || 0;
             if (count > 0) {
@@ -371,15 +379,39 @@ function Dashboard() {
           });
           searchesByUser.sort((a, b) => b.count - a.count);
 
-          // Prepare graph data (last 7 days) - need to fetch from analytics or calculate from user activity dates
+          // Count anonymous searches from Analytics collection
+          if (analyticsData && analyticsData.searches && Array.isArray(analyticsData.searches)) {
+            searchesByAnonymous = analyticsData.searches.length;
+            totalSearches += searchesByAnonymous;
+          }
+
+          // Prepare graph data (last 7 days)
           const nowSearches = new Date();
           const graphDataSearches = [];
           for (let i = 6; i >= 0; i--) {
             const date = new Date(nowSearches.getTime() - i * 24 * 60 * 60 * 1000);
             const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dayStart = new Date(date);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(date);
+            dayEnd.setHours(23, 59, 59, 999);
+            
+            // Count searches from analytics for this day
+            let daySearches = 0;
+            if (analyticsData && analyticsData.searches) {
+              daySearches = analyticsData.searches.filter(s => {
+                const searchDate = new Date(s.timestamp || s.createdAt || 0);
+                return searchDate >= dayStart && searchDate <= dayEnd;
+              }).length;
+            }
+            
+            // Add logged user searches (distributed estimate)
+            const loggedUserSearches = Math.floor(searchesByLoggedUser / 7);
+            daySearches += loggedUserSearches;
+            
             graphDataSearches.push({
               date: dateStr,
-              searches: Math.floor(Math.random() * 20) + 5 // Placeholder - would need actual search history data
+              searches: daySearches
             });
           }
 
@@ -387,7 +419,7 @@ function Dashboard() {
             total: totalSearches,
             usersWithSearches: searchesByUser.length,
             topUsers: searchesByUser.slice(0, 10),
-            average: searchesUsers.length > 0 ? (totalSearches / searchesUsers.length).toFixed(1) : 0,
+            average: searchesUsers.length > 0 ? (searchesByLoggedUser / searchesUsers.length).toFixed(1) : 0,
             byLoggedUser: searchesByLoggedUser,
             byAnonymous: searchesByAnonymous,
             graphData: graphDataSearches
@@ -395,13 +427,21 @@ function Dashboard() {
           break;
 
         case 'pathfinding':
-          const pathfindingUsersRes = await usersAPI.getAll({ limit: 10000 });
+          const [pathfindingUsersRes, analyticsPathfindingRes] = await Promise.all([
+            usersAPI.getAll({ limit: 10000 }),
+            fetch(`${baseUrl}/api/analytics/stats`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            }).then(r => r.json()).catch(() => ({ analytics: null }))
+          ]);
           const pathfindingUsers = pathfindingUsersRes.data?.users || pathfindingUsersRes.data || [];
+          const analyticsPathfindingData = analyticsPathfindingRes.analytics || analyticsPathfindingRes.data || null;
 
           let totalPathfinding = 0;
           let pathfindingByLoggedUser = 0;
           let pathfindingByAnonymous = 0;
           const pathfindingByUser = [];
+          
+          // Count pathfinding from logged users
           pathfindingUsers.forEach(user => {
             const count = user.activity?.pathfindingCount || 0;
             if (count > 0) {
@@ -417,15 +457,39 @@ function Dashboard() {
           });
           pathfindingByUser.sort((a, b) => b.count - a.count);
 
+          // Count anonymous pathfinding from Analytics collection
+          if (analyticsPathfindingData && analyticsPathfindingData.pathfindingRoutes && Array.isArray(analyticsPathfindingData.pathfindingRoutes)) {
+            pathfindingByAnonymous = analyticsPathfindingData.pathfindingRoutes.length;
+            totalPathfinding += pathfindingByAnonymous;
+          }
+
           // Prepare graph data (last 7 days)
           const nowPathfinding = new Date();
           const graphDataPathfinding = [];
           for (let i = 6; i >= 0; i--) {
             const date = new Date(nowPathfinding.getTime() - i * 24 * 60 * 60 * 1000);
             const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dayStart = new Date(date);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(date);
+            dayEnd.setHours(23, 59, 59, 999);
+            
+            // Count pathfinding from analytics for this day
+            let dayPathfinding = 0;
+            if (analyticsPathfindingData && analyticsPathfindingData.pathfindingRoutes) {
+              dayPathfinding = analyticsPathfindingData.pathfindingRoutes.filter(r => {
+                const routeDate = new Date(r.timestamp || r.createdAt || 0);
+                return routeDate >= dayStart && routeDate <= dayEnd;
+              }).length;
+            }
+            
+            // Add logged user pathfinding (distributed estimate)
+            const loggedUserPathfinding = Math.floor(pathfindingByLoggedUser / 7);
+            dayPathfinding += loggedUserPathfinding;
+            
             graphDataPathfinding.push({
               date: dateStr,
-              pathfinding: Math.floor(Math.random() * 15) + 3 // Placeholder - would need actual pathfinding history data
+              pathfinding: dayPathfinding
             });
           }
 
@@ -433,7 +497,7 @@ function Dashboard() {
             total: totalPathfinding,
             usersWithPathfinding: pathfindingByUser.length,
             topUsers: pathfindingByUser.slice(0, 10),
-            average: pathfindingUsers.length > 0 ? (totalPathfinding / pathfindingUsers.length).toFixed(1) : 0,
+            average: pathfindingUsers.length > 0 ? (pathfindingByLoggedUser / pathfindingUsers.length).toFixed(1) : 0,
             byLoggedUser: pathfindingByLoggedUser,
             byAnonymous: pathfindingByAnonymous,
             graphData: graphDataPathfinding
