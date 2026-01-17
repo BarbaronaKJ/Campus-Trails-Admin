@@ -113,43 +113,32 @@ function Dashboard() {
           const pinsRes = await pinsResponse.json();
           const pins = Array.isArray(pinsRes.pins) ? pinsRes.pins : (Array.isArray(pinsRes.data) ? pinsRes.data : []);
           
-          // Organize pins by campus, then by visible/invisible
-          const pinsByCampus = {};
+          // Separate visible (buildings/facilities) from invisible (waypoints)
+          // Use isVisible field (not visible) - matches Facility Pins management logic
+          // isVisible === false means it's a waypoint
+          // isVisible !== false (true or undefined) means it's visible
+          const visiblePins = Array.isArray(pins) ? pins.filter(p => p.isVisible !== false) : [];
+          const invisiblePins = Array.isArray(pins) ? pins.filter(p => p.isVisible === false) : [];
           
-          if (Array.isArray(pins)) {
-            pins.forEach(pin => {
-            const campusName = pin.campusId?.name || 'Unknown Campus';
-            const campusId = pin.campusId?._id || pin.campusId || 'unknown';
-            
-            if (!pinsByCampus[campusName]) {
-              pinsByCampus[campusName] = {
-                campusId: campusId,
-                visible: [], // Buildings/Facilities
-                invisible: [] // Waypoints
-              };
-            }
-            
-            // Separate visible (buildings/facilities) from invisible (waypoints)
-            // Use isVisible field (not visible) - matches Facility Pins management logic
-            // isVisible === false means it's a waypoint
-            // isVisible !== false (true or undefined) means it's visible
-            if (pin.isVisible === false) {
-              pinsByCampus[campusName].invisible.push(pin);
-            } else {
-              pinsByCampus[campusName].visible.push(pin);
-            }
-            });
-          }
-
-          // Calculate accurate counts - use isVisible field like Facility Pins does
-          const visibleCount = Array.isArray(pins) ? pins.filter(p => p.isVisible !== false).length : 0;
-          const invisibleCount = Array.isArray(pins) ? pins.filter(p => p.isVisible === false).length : 0;
+          // Sort by description (case-insensitive, alphabetically)
+          const sortedVisiblePins = [...visiblePins].sort((a, b) => {
+            const descA = (a.description || '').trim().toLowerCase();
+            const descB = (b.description || '').trim().toLowerCase();
+            return descA.localeCompare(descB, undefined, { numeric: true, sensitivity: 'base' });
+          });
+          
+          const sortedInvisiblePins = [...invisiblePins].sort((a, b) => {
+            const descA = (a.description || '').trim().toLowerCase();
+            const descB = (b.description || '').trim().toLowerCase();
+            return descA.localeCompare(descB, undefined, { numeric: true, sensitivity: 'base' });
+          });
 
           setDetailedData({
             total: pins.length,
-            byCampus: pinsByCampus || {},
-            visible: visibleCount,
-            invisible: invisibleCount
+            visiblePins: sortedVisiblePins,
+            invisiblePins: sortedInvisiblePins,
+            visible: visiblePins.length,
+            invisible: invisiblePins.length
           });
           break;
 
@@ -803,84 +792,47 @@ function Dashboard() {
               </div>
             </div>
 
-            {detailedData.byCampus && Object.keys(detailedData.byCampus).length > 0 && (
-              <div className="pins-by-campus">
-                {/* Toggle Buttons */}
-                <div className="pin-view-toggle">
-                  <button 
-                    className={`toggle-btn ${pinViewMode === 'visible' ? 'active' : ''}`}
-                    onClick={() => setPinViewMode('visible')}
-                  >
-                    Visible (Buildings/Facilities) <span>({detailedData.visible})</span>
-                  </button>
-                  <button 
-                    className={`toggle-btn ${pinViewMode === 'invisible' ? 'active' : ''}`}
-                    onClick={() => setPinViewMode('invisible')}
-                  >
-                    Invisible (Waypoints) <span>({detailedData.invisible})</span>
-                  </button>
-                </div>
-
-                <h3>By Campus</h3>
-                {Object.entries(detailedData.byCampus || {}).map(([campusName, campusData]) => {
-                  const pinsToShow = pinViewMode === 'visible' ? campusData.visible : campusData.invisible;
-                  const categoryLabel = pinViewMode === 'visible' ? 'Buildings/Facilities' : 'Waypoints';
-                  
-                  // Sort pins: numeric titles first (numerically), then text titles (alphabetically)
-                  const sortedPins = [...pinsToShow].sort((a, b) => {
-                    const titleA = (a.title || '').trim();
-                    const titleB = (b.title || '').trim();
-                    
-                    // Check if titles are numeric
-                    const isNumericA = /^\d+$/.test(titleA);
-                    const isNumericB = /^\d+$/.test(titleB);
-                    
-                    // If both are numeric, sort numerically
-                    if (isNumericA && isNumericB) {
-                      return parseInt(titleA, 10) - parseInt(titleB, 10);
-                    }
-                    
-                    // If only A is numeric, it comes first
-                    if (isNumericA && !isNumericB) {
-                      return -1;
-                    }
-                    
-                    // If only B is numeric, it comes first
-                    if (!isNumericA && isNumericB) {
-                      return 1;
-                    }
-                    
-                    // Both are text, sort alphabetically (case-insensitive)
-                    return titleA.localeCompare(titleB, undefined, { numeric: true, sensitivity: 'base' });
-                  });
-                  
-                  return (
-                    <div key={campusName} className="campus-pins-section">
-                      <h4 className="campus-name">{campusName}</h4>
-                      
-                      <div className="pin-category">
-                        <h5 className="category-title">
-                          {pinViewMode === 'visible' ? 'Visible' : 'Invisible'} Pins - {categoryLabel}
-                          <span className="pin-count">({pinsToShow.length})</span>
-                        </h5>
-                        {sortedPins.length > 0 ? (
-                          <ul className="pin-list">
-                            {sortedPins.map(pin => (
-                              <li key={pin._id} className="pin-item">
-                                <strong>{pin.title || (pinViewMode === 'visible' ? 'Untitled' : 'Untitled Waypoint')}</strong>
-                                {pin.description && <span className="pin-description"> - {pin.description}</span>}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="no-pins">No {pinViewMode === 'visible' ? 'visible' : 'invisible'} pins</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
+            <div className="pins-categories">
+              {/* Buildings/Facilities Category */}
+              <div className="pin-category-section">
+                <h3 className="category-header">
+                  Buildings/Facilities (Visible Pins)
+                  <span className="pin-count">({detailedData.visible || 0})</span>
+                </h3>
+                {detailedData.visiblePins && detailedData.visiblePins.length > 0 ? (
+                  <ul className="pin-list">
+                    {detailedData.visiblePins.map(pin => (
+                      <li key={pin._id} className="pin-item">
+                        <strong>{pin.title || 'Untitled'}</strong>
+                        {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="no-pins">No visible pins</p>
+                )}
               </div>
-            )}
+
+              {/* Waypoints Category */}
+              <div className="pin-category-section">
+                <h3 className="category-header">
+                  Waypoints (Invisible Pins)
+                  <span className="pin-count">({detailedData.invisible || 0})</span>
+                </h3>
+                {detailedData.invisiblePins && detailedData.invisiblePins.length > 0 ? (
+                  <ul className="pin-list">
+                    {detailedData.invisiblePins.map(pin => (
+                      <li key={pin._id} className="pin-item">
+                        <strong>{pin.title || 'Untitled Waypoint'}</strong>
+                        {pin.description && <span className="pin-description"> - {pin.description}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="no-pins">No invisible pins</p>
+                )}
+              </div>
+            </div>
           </div>
         );
 
