@@ -1348,6 +1348,47 @@ function PinsManagement() {
               </div>
             </div>
             
+            {/* Pin Details Section */}
+            <div style={{ 
+              padding: '15px', 
+              backgroundColor: '#f0f8ff', 
+              borderBottom: '2px solid #007bff',
+              marginBottom: '15px'
+            }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <p style={{ margin: '5px 0', color: '#555' }}>
+                    <strong>ID:</strong> {selectedPin._id || selectedPin.id}
+                  </p>
+                  <p style={{ margin: '5px 0', color: '#555' }}>
+                    <strong>Category:</strong> {selectedPin.category || 'N/A'}
+                  </p>
+                  <p style={{ margin: '5px 0', color: '#555' }}>
+                    <strong>Type:</strong> {selectedPin.isVisible === false ? 'Waypoint (Hidden)' : 'Visible Pin'}
+                  </p>
+                  <p style={{ margin: '5px 0', color: '#555' }}>
+                    <strong>Coordinates:</strong> ({selectedPin.x}, {selectedPin.y})
+                  </p>
+                </div>
+                <div>
+                  <p style={{ margin: '5px 0', color: '#555' }}>
+                    <strong>Description:</strong>
+                  </p>
+                  <p style={{ 
+                    margin: '5px 0', 
+                    padding: '10px', 
+                    backgroundColor: '#fff', 
+                    borderRadius: '4px',
+                    border: '1px solid #ddd',
+                    minHeight: '40px',
+                    color: '#333'
+                  }}>
+                    {selectedPin.description || 'No description provided'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            
             {/* Search bar for pin selection */}
             <div style={{ padding: '15px', borderBottom: '1px solid #ddd', backgroundColor: '#f9f9f9' }}>
               <div className="form-group" style={{ marginBottom: '10px' }}>
