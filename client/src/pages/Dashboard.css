@@ -227,17 +227,13 @@
 .popup-overlay {
   position: fixed;
   top: 0;
-  left: 240px;
+  left: 0;
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.6);
   z-index: 2000;
   animation: fadeIn 0.3s ease;
-}
-
-.layout.collapsed ~ .popup-overlay,
-.layout.collapsed .popup-overlay {
-  left: 60px;
+  padding-left: 240px;
 }
 
 @keyframes fadeIn {
@@ -252,10 +248,10 @@
 .popup-modal {
   position: fixed;
   top: 50%;
-  left: calc(240px + (100vw - 240px) / 2);
-  transform: translate(-50%, -50%);
+  left: 50%;
+  transform: translate(calc(-50% + 120px), -50%);
   width: calc(95vw - 240px);
-  max-width: min(1200px, calc(100vw - 280px));
+  max-width: calc(1200px - 240px);
   max-height: 90vh;
   background: white;
   border-radius: 12px;
