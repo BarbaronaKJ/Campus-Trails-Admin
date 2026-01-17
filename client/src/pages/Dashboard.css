@@ -265,25 +265,35 @@
 @keyframes popupSlideIn {
   from {
     opacity: 0;
-    transform: translate(-50%, -45%);
+    transform: translate(calc(-50% + 120px), -45%);
   }
   to {
     opacity: 1;
-    transform: translate(-50%, -50%);
+    transform: translate(calc(-50% + 120px), -50%);
   }
 }
 
 /* Adjust popup for collapsed sidebar */
-.layout.collapsed ~ .popup-overlay,
 body:has(.layout.collapsed) .popup-overlay {
-  left: 60px;
+  padding-left: 60px;
 }
 
-.layout.collapsed ~ .popup-modal,
 body:has(.layout.collapsed) .popup-modal {
-  left: calc(60px + (100vw - 60px) / 2);
+  transform: translate(calc(-50% + 30px), -50%);
   width: calc(95vw - 60px);
-  max-width: min(1200px, calc(100vw - 100px));
+  max-width: calc(1200px - 60px);
+  animation: popupSlideInCollapsed 0.3s ease;
+}
+
+@keyframes popupSlideInCollapsed {
+  from {
+    opacity: 0;
+    transform: translate(calc(-50% + 30px), -45%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(calc(-50% + 30px), -50%);
+  }
 }
 
 .popup-header {
