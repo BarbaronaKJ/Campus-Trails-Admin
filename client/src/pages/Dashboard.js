@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import './Dashboard.css';
@@ -165,25 +165,53 @@ function Dashboard() {
             return lastActive >= sevenDaysAgo;
           });
 
+          // Sort users by email/username
+          const sortedUsers = [...users].sort((a, b) => {
+            const emailA = (a.email || a.username || '').toLowerCase();
+            const emailB = (b.email || b.username || '').toLowerCase();
+            return emailA.localeCompare(emailB);
+          });
+
           setDetailedData({
             total: users.length,
             recentUsers: recentUsers.length,
             activeUsers: activeUsers.length,
-            usersWithActivity: users.filter(u => u.activity).length
+            usersWithActivity: users.filter(u => u.activity).length,
+            usersList: sortedUsers
           });
           break;
 
         case 'campuses':
           const campusesRes = await campusesAPI.getAll();
           const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
+          
+          // Fetch pins to count facilities and waypoints per campus
+          const campusPinsRes = await fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }).then(r => r.json());
+          const allPins = campusPinsRes.pins || campusPinsRes.data || [];
+          
+          // Count pins per campus
+          const campusesWithPins = campusesData.map(campus => {
+            const campusPins = allPins.filter(p => 
+              (p.campusId?._id || p.campusId) === (campus._id || campus.id)
+            );
+            const facilities = campusPins.filter(p => p.isVisible !== false).length;
+            const waypoints = campusPins.filter(p => p.isVisible === false).length;
+            
+            return {
+              name: campus.name,
+              id: campus._id || campus.id,
+              location: campus.location,
+              facilities: facilities,
+              waypoints: waypoints,
+              totalPins: campusPins.length
+            };
+          });
 
           setDetailedData({
             total: campusesData.length,
-            campuses: campusesData.map(c => ({
-              name: c.name,
-              id: c._id,
-              location: c.location
-            }))
+            campuses: campusesWithPins
           });
           break;
 
@@ -202,6 +230,7 @@ function Dashboard() {
                 allFeedbackHistory.push({
                   ...feedback,
                   userId: user._id,
+                  userEmail: user.email || user.username || 'Unknown',
                   date: feedback.date || feedback.createdAt
                 });
               });
@@ -222,11 +251,42 @@ function Dashboard() {
             return date >= sevenDaysAgoFeedback;
           });
 
+          // Prepare graph data (last 7 days)
+          const now = new Date();
+          const graphData = [];
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+            const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+            const dayStart = new Date(date);
+            dayStart.setHours(0, 0, 0, 0);
+            const dayEnd = new Date(date);
+            dayEnd.setHours(23, 59, 59, 999);
+            
+            const dayReports = allFeedbackHistory.filter(f => {
+              const feedbackDate = new Date(f.date || f.createdAt || 0);
+              return feedbackDate >= dayStart && feedbackDate <= dayEnd;
+            }).length;
+            
+            graphData.push({
+              date: dateStr,
+              reports: dayReports
+            });
+          }
+
+          // Sort feedbacks by date (newest first)
+          const sortedFeedbacks = [...allFeedbackHistory].sort((a, b) => {
+            const dateA = new Date(a.date || a.createdAt || 0);
+            const dateB = new Date(b.date || b.createdAt || 0);
+            return dateB - dateA;
+          });
+
           setDetailedData({
             total: allFeedbackHistory.length,
             byType: feedbacksByType,
             recent: recentFeedbacks.length,
-            appFeedback: suggestions.length
+            appFeedback: suggestions.length,
+            graphData: graphData,
+            reportsList: sortedFeedbacks
           });
           break;
 
@@ -248,10 +308,18 @@ function Dashboard() {
             return date >= sevenDaysAgoApp;
           });
 
+          // Sort feedbacks by date (newest first)
+          const sortedAppFeedbacks = [...appFeedbacks].sort((a, b) => {
+            const dateA = new Date(a.createdAt || 0);
+            const dateB = new Date(b.createdAt || 0);
+            return dateB - dateA;
+          });
+
           setDetailedData({
             total: appFeedbacks.length,
             byStatus: feedbacksByStatus,
-            recent: recentAppFeedbacks.length
+            recent: recentAppFeedbacks.length,
+            feedbacksList: sortedAppFeedbacks
           });
           break;
 
@@ -678,6 +746,25 @@ function Dashboard() {
                 <strong>{detailedData.usersWithActivity}</strong>
               </div>
             </div>
+
+            {detailedData.usersList && detailedData.usersList.length > 0 && (
+              <div className="metric-section">
+                <h3>All Users ({detailedData.usersList.length})</h3>
+                <ul className="user-list">
+                  {detailedData.usersList.map(user => (
+                    <li key={user._id} className="user-item">
+                      <strong>{user.email || user.username || 'Unknown'}</strong>
+                      {user.displayName && <span className="user-display-name"> - {user.displayName}</span>}
+                      {user.createdAt && (
+                        <span className="user-date">
+                          {' '}(Joined: {new Date(user.createdAt).toLocaleDateString()})
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         );
 
@@ -688,7 +775,17 @@ function Dashboard() {
               <h3>Campuses ({detailedData.total})</h3>
               {detailedData.campuses.map(campus => (
                 <div key={campus.id} className="campus-item">
-                  <strong>{campus.name}</strong>
+                  <div className="campus-header">
+                    <strong>{campus.name}</strong>
+                    <div className="campus-pin-counts">
+                      <span className="pin-count-badge facilities">
+                        Facilities: {campus.facilities || 0}
+                      </span>
+                      <span className="pin-count-badge waypoints">
+                        Waypoints: {campus.waypoints || 0}
+                      </span>
+                    </div>
+                  </div>
                   {campus.location && (
                     <span className="campus-location">{campus.location}</span>
                   )}
@@ -717,6 +814,23 @@ function Dashboard() {
               </div>
             </div>
 
+            {detailedData.graphData && detailedData.graphData.length > 0 && (
+              <div className="metric-section">
+                <h3>Reports Trend (Last 7 Days)</h3>
+                <div className="chart-container" style={{ height: '200px', marginTop: '15px' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={detailedData.graphData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="date" style={{ fontSize: '12px' }} />
+                      <YAxis style={{ fontSize: '12px' }} />
+                      <Tooltip contentStyle={{ fontSize: '12px' }} />
+                      <Bar dataKey="reports" fill={CAMPUS_TRAILS_RED} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
+            )}
+
             {Object.keys(detailedData.byType).length > 0 && (
               <div className="metric-section">
                 <h3>By Type</h3>
@@ -728,6 +842,30 @@ function Dashboard() {
                       <strong>{count}</strong>
                     </div>
                   ))}
+              </div>
+            )}
+
+            {detailedData.reportsList && detailedData.reportsList.length > 0 && (
+              <div className="metric-section">
+                <h3>All Reports ({detailedData.reportsList.length})</h3>
+                <ul className="report-list">
+                  {detailedData.reportsList.map((report, idx) => (
+                    <li key={report._id || idx} className="report-item">
+                      <div className="report-header">
+                        <strong>{report.type || report.feedbackType || 'General'}</strong>
+                        <span className="report-date">
+                          {new Date(report.date || report.createdAt || 0).toLocaleDateString()}
+                        </span>
+                      </div>
+                      {report.message && (
+                        <p className="report-message">{report.message}</p>
+                      )}
+                      {report.userEmail && (
+                        <span className="report-user">By: {report.userEmail}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
@@ -759,6 +897,35 @@ function Dashboard() {
                       <strong>{count}</strong>
                     </div>
                   ))}
+              </div>
+            )}
+
+            {detailedData.feedbacksList && detailedData.feedbacksList.length > 0 && (
+              <div className="metric-section">
+                <h3>All Feedback ({detailedData.feedbacksList.length})</h3>
+                <ul className="feedback-list">
+                  {detailedData.feedbacksList.map((feedback, idx) => (
+                    <li key={feedback._id || idx} className="feedback-item">
+                      <div className="feedback-header">
+                        <strong>{feedback.subject || feedback.title || 'No Subject'}</strong>
+                        <span className="feedback-status">{feedback.status || 'Pending'}</span>
+                      </div>
+                      {feedback.message && (
+                        <p className="feedback-message">{feedback.message}</p>
+                      )}
+                      <div className="feedback-meta">
+                        {feedback.createdAt && (
+                          <span className="feedback-date">
+                            {new Date(feedback.createdAt).toLocaleDateString()}
+                          </span>
+                        )}
+                        {feedback.userEmail && (
+                          <span className="feedback-user">By: {feedback.userEmail}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
