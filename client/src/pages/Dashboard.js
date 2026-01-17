@@ -399,22 +399,22 @@ function Dashboard() {
             const dayEnd = new Date(date);
             dayEnd.setHours(23, 59, 59, 999);
             
-            // Count searches from analytics for this day
-            let daySearches = 0;
+            // Count anonymous searches from analytics for this day
+            let anonymousSearches = 0;
             if (analyticsData && analyticsData.recentSearches) {
-              daySearches = analyticsData.recentSearches.filter(s => {
+              anonymousSearches = analyticsData.recentSearches.filter(s => {
                 const searchDate = new Date(s.timestamp || s.createdAt || 0);
                 return searchDate >= dayStart && searchDate <= dayEnd;
               }).length;
             }
             
-            // Add logged user searches (distributed estimate)
+            // Estimate logged user searches (distributed estimate - would need actual date tracking)
             const loggedUserSearches = Math.floor(searchesByLoggedUser / 7);
-            daySearches += loggedUserSearches;
             
             graphDataSearches.push({
               date: dateStr,
-              searches: daySearches
+              'Logged Users': loggedUserSearches,
+              'Anonymous': anonymousSearches
             });
           }
 
@@ -480,22 +480,22 @@ function Dashboard() {
             const dayEnd = new Date(date);
             dayEnd.setHours(23, 59, 59, 999);
             
-            // Count pathfinding from analytics for this day
-            let dayPathfinding = 0;
+            // Count anonymous pathfinding from analytics for this day
+            let anonymousPathfinding = 0;
             if (analyticsPathfindingData && analyticsPathfindingData.recentRoutes) {
-              dayPathfinding = analyticsPathfindingData.recentRoutes.filter(r => {
+              anonymousPathfinding = analyticsPathfindingData.recentRoutes.filter(r => {
                 const routeDate = new Date(r.timestamp || r.createdAt || 0);
                 return routeDate >= dayStart && routeDate <= dayEnd;
               }).length;
             }
             
-            // Add logged user pathfinding (distributed estimate)
+            // Estimate logged user pathfinding (distributed estimate - would need actual date tracking)
             const loggedUserPathfinding = Math.floor(pathfindingByLoggedUser / 7);
-            dayPathfinding += loggedUserPathfinding;
             
             graphDataPathfinding.push({
               date: dateStr,
-              pathfinding: dayPathfinding
+              'Logged Users': loggedUserPathfinding,
+              'Anonymous': anonymousPathfinding
             });
           }
 
@@ -1155,13 +1155,23 @@ function Dashboard() {
                       <XAxis dataKey="date" style={{ fontSize: '12px' }} />
                       <YAxis style={{ fontSize: '12px' }} />
                       <Tooltip contentStyle={{ fontSize: '12px' }} />
+                      <Legend wrapperStyle={{ fontSize: '12px' }} />
                       <Line 
                         type="monotone" 
-                        dataKey={selectedMetric === 'searches' ? 'searches' : 'pathfinding'}
+                        dataKey="Logged Users"
                         stroke={selectedMetric === 'searches' ? CAMPUS_TRAILS_BLUE : CAMPUS_TRAILS_YELLOW}
                         strokeWidth={2}
                         dot={{ r: 4 }}
                         activeDot={{ r: 6 }}
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="Anonymous"
+                        stroke="#6c757d"
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        activeDot={{ r: 6 }}
+                        strokeDasharray="5 5"
                       />
                     </LineChart>
                   </ResponsiveContainer>
