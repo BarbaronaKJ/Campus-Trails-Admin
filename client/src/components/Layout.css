@@ -16,9 +16,13 @@
   flex-direction: column;
   transition: width 0.3s ease;
   box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
+  position: fixed;
+  left: 0;
+  top: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   height: 100vh;
+  z-index: 1000;
 }
 
 .sidebar-header {

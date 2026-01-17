@@ -936,14 +936,17 @@ function Dashboard() {
               <div className="metric-section">
                 <h3>All Reports ({detailedData.reportsList.length})</h3>
                 <ul className="report-list">
-                  {detailedData.reportsList.map((report, idx) => (
-                    <li key={report._id || idx} className="report-item">
-                      <div className="report-header">
-                        <strong>{report.type || report.feedbackType || 'General'}</strong>
-                        <span className="report-date">
-                          {new Date(report.date || report.createdAt || 0).toLocaleDateString()}
-                        </span>
-                      </div>
+                  {detailedData.reportsList.map((report, idx) => {
+                    const reportType = report.type || report.feedbackType;
+                    return (
+                      <li key={report._id || idx} className="report-item">
+                        <div className="report-header">
+                          {reportType && reportType !== 'General' && <strong>{reportType}</strong>}
+                          {!reportType || reportType === 'General' ? <span></span> : null}
+                          <span className="report-date">
+                            {new Date(report.date || report.createdAt || 0).toLocaleDateString()}
+                          </span>
+                        </div>
                       {report.message && (
                         <p className="report-message">{report.message}</p>
                       )}
