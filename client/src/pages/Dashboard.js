@@ -192,10 +192,14 @@ function Dashboard() {
           const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
           
           // Fetch pins to count facilities and waypoints per campus
-          const campusPinsRes = await fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
+          const campusPinsResponse = await fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true`, {
             headers: { 'Authorization': `Bearer ${token}` }
-          }).then(r => r.json());
-          const allPins = campusPinsRes.pins || campusPinsRes.data || [];
+          });
+          if (!campusPinsResponse.ok) {
+            throw new Error(`Failed to fetch pins: ${campusPinsResponse.status} ${campusPinsResponse.statusText}`);
+          }
+          const campusPinsRes = await campusPinsResponse.json();
+          const allPins = Array.isArray(campusPinsRes.pins) ? campusPinsRes.pins : (Array.isArray(campusPinsRes.data) ? campusPinsRes.data : []);
           
           // Count pins per campus
           const campusesWithPins = campusesData.map(campus => {
