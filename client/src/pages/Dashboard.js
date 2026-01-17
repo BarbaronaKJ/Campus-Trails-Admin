@@ -641,7 +641,6 @@ function Dashboard() {
                               <li key={pin._id} className="pin-item">
                                 <strong>{pin.title || (pinViewMode === 'visible' ? 'Untitled' : 'Untitled Waypoint')}</strong>
                                 {pin.description && <span className="pin-description"> - {pin.description}</span>}
-                                {pin.pinType && <span className="pin-type">{pin.pinType}</span>}
                               </li>
                             ))}
                           </ul>
