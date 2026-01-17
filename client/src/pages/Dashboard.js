@@ -359,8 +359,6 @@ function Dashboard() {
           break;
 
         case 'searches':
-          const baseUrl = getApiBaseUrl();
-          const token = localStorage.getItem('adminToken');
           const [searchesUsersRes, analyticsSearchesRes] = await Promise.all([
             usersAPI.getAll({ limit: 10000 }),
             fetch(`${baseUrl}/api/analytics/stats`, {
@@ -440,12 +438,10 @@ function Dashboard() {
           break;
 
         case 'pathfinding':
-          const baseUrlPathfinding = getApiBaseUrl();
-          const tokenPathfinding = localStorage.getItem('adminToken');
           const [pathfindingUsersRes, analyticsPathfindingRes] = await Promise.all([
             usersAPI.getAll({ limit: 10000 }),
-            fetch(`${baseUrlPathfinding}/api/analytics/stats`, {
-              headers: { 'Authorization': `Bearer ${tokenPathfinding}` }
+            fetch(`${baseUrl}/api/analytics/stats`, {
+              headers: { 'Authorization': `Bearer ${token}` }
             }).then(r => r.json()).catch(() => ({ success: false, data: null }))
           ]);
           const pathfindingUsers = pathfindingUsersRes.data?.users || pathfindingUsersRes.data || [];
