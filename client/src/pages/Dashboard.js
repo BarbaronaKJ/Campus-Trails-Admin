@@ -138,11 +138,12 @@ function Dashboard() {
             } else {
               pinsByCampus[campusName].visible.push(pin);
             }
-          });
+            });
+          }
 
           // Calculate accurate counts - use isVisible field like Facility Pins does
-          const visibleCount = pins.filter(p => p.isVisible !== false).length;
-          const invisibleCount = pins.filter(p => p.isVisible === false).length;
+          const visibleCount = Array.isArray(pins) ? pins.filter(p => p.isVisible !== false).length : 0;
+          const invisibleCount = Array.isArray(pins) ? pins.filter(p => p.isVisible === false).length : 0;
 
           setDetailedData({
             total: pins.length,
