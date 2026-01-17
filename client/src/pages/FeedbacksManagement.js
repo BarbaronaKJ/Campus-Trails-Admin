@@ -220,8 +220,6 @@ function FeedbacksManagement() {
           🔄 Refresh
         </button>
       </div>
-        </button>
-      </div>
 
       {/* Reports Tab */}
       {activeTab === 'reports' && (
