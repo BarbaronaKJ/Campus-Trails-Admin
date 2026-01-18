@@ -172,18 +172,21 @@ function FloorPlans() {
 
     const updatedFloors = [...pin.floors];
     const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
+    // Get existing room data to preserve fields not being edited
+    const existingRoom = updatedRooms[roomIndex] || {};
     // Remove image field if it exists, keep only name, description, and order
     const { image, ...roomUpdate } = editingRoomData;
-    // Ensure order is included - merge with existing room data
-    const existingRoom = updatedRooms[roomIndex] || {};
-    updatedRooms[roomIndex] = { 
-      ...existingRoom, 
+    // Merge: existing room data + edited data (order, name, description)
+    // Explicitly preserve order even if it's 0 or undefined - use 'in' operator to check if key exists
+    const finalRoomData = {
+      ...existingRoom,
       ...roomUpdate,
-      // Explicitly ensure order is set (can be 0, so use !== undefined check)
-      order: roomUpdate.order !== undefined ? roomUpdate.order : existingRoom.order
+      // Explicitly set order - use roomUpdate.order if key exists in roomUpdate, otherwise keep existing
+      order: 'order' in roomUpdate ? roomUpdate.order : (existingRoom.order !== undefined ? existingRoom.order : undefined)
     };
     // Ensure image is removed from the room
-    delete updatedRooms[roomIndex].image;
+    delete finalRoomData.image;
+    updatedRooms[roomIndex] = finalRoomData;
     updatedFloors[floorIndex] = {
       ...updatedFloors[floorIndex],
       rooms: updatedRooms
