@@ -174,7 +174,14 @@ function FloorPlans() {
     const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
     // Remove image field if it exists, keep only name, description, and order
     const { image, ...roomUpdate } = editingRoomData;
-    updatedRooms[roomIndex] = { ...updatedRooms[roomIndex], ...roomUpdate };
+    // Ensure order is included - merge with existing room data
+    const existingRoom = updatedRooms[roomIndex] || {};
+    updatedRooms[roomIndex] = { 
+      ...existingRoom, 
+      ...roomUpdate,
+      // Explicitly ensure order is set (can be 0, so use !== undefined check)
+      order: roomUpdate.order !== undefined ? roomUpdate.order : existingRoom.order
+    };
     // Ensure image is removed from the room
     delete updatedRooms[roomIndex].image;
     updatedFloors[floorIndex] = {
@@ -748,7 +755,11 @@ function FloorPlans() {
                                                         <input
                                                           type="number"
                                                           value={editingRoomData?.order !== undefined ? editingRoomData.order : (room.order !== undefined ? room.order : '')}
-                                                          onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { order: parseInt(e.target.value) || 0 })}
+                                                          onChange={(e) => {
+                                                            const value = e.target.value;
+                                                            const orderValue = value === '' ? undefined : parseInt(value);
+                                                            handleUpdateRoom(pinId, floorIndex, originalIndex, { order: isNaN(orderValue) ? undefined : orderValue });
+                                                          }}
                                                           className="form-group input"
                                                           min="0"
                                                           required
