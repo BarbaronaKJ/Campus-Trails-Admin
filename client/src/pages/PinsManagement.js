@@ -34,6 +34,8 @@ function PinsManagement() {
 
   // Available categories
   const AVAILABLE_CATEGORIES = [
+    'Buildings',
+    'Amenities',
     'Commercial Zone',
     'Academic Core Zone',
     'Admin/Operation Zone',
