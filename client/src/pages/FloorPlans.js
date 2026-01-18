@@ -162,7 +162,9 @@ function FloorPlans() {
   const handleUpdateRoom = (pinId, floorIndex, roomIndex, updatedRoom) => {
     // Update local state only - don't save to backend yet
     const { image, ...roomUpdate } = updatedRoom;
-    setEditingRoomData({ ...editingRoomData, ...roomUpdate });
+    // Ensure editingRoomData is initialized (should already be set when Edit is clicked)
+    const currentEditingData = editingRoomData || {};
+    setEditingRoomData({ ...currentEditingData, ...roomUpdate });
   };
 
   const handleSaveRoom = (pinId, floorIndex, roomIndex) => {

@@ -1400,7 +1400,12 @@ function PinsManagement() {
                               value={room.name || ''}
                               onChange={(e) => {
                                 const newFloors = [...(editPinData.floors || [])]
-                                newFloors[floorIndex].rooms[roomIndex].name = e.target.value
+                                const newFloor = { ...newFloors[floorIndex] }
+                                const newRooms = [...(newFloor.rooms || [])]
+                                const newRoom = { ...newRooms[roomIndex], name: e.target.value }
+                                newRooms[roomIndex] = newRoom
+                                newFloor.rooms = newRooms
+                                newFloors[floorIndex] = newFloor
                                 setEditPinData({...editPinData, floors: newFloors})
                               }}
                               placeholder="Room name (e.g., ICT 101)"
@@ -1412,7 +1417,12 @@ function PinsManagement() {
                               value={room.description || ''}
                               onChange={(e) => {
                                 const newFloors = [...(editPinData.floors || [])]
-                                newFloors[floorIndex].rooms[roomIndex].description = e.target.value
+                                const newFloor = { ...newFloors[floorIndex] }
+                                const newRooms = [...(newFloor.rooms || [])]
+                                const newRoom = { ...newRooms[roomIndex], description: e.target.value }
+                                newRooms[roomIndex] = newRoom
+                                newFloor.rooms = newRooms
+                                newFloors[floorIndex] = newFloor
                                 setEditPinData({...editPinData, floors: newFloors})
                               }}
                               placeholder="Description"
