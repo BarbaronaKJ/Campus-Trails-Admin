@@ -1213,23 +1213,28 @@ function PinsManagement() {
                   <div style={{ 
                     border: '1px solid #ddd', 
                     borderRadius: '5px', 
-                    padding: '10px', 
+                    padding: '12px 10px', 
                     backgroundColor: '#f9f9f9',
                     maxHeight: '200px',
                     overflowY: 'auto'
                   }}>
-                    {AVAILABLE_CATEGORIES.map(cat => {
+                    {AVAILABLE_CATEGORIES.map((cat, index) => {
                       const currentCategories = Array.isArray(editPinData.category) 
                         ? editPinData.category 
                         : (editPinData.category ? [editPinData.category] : [])
                       const isSelected = currentCategories.includes(cat)
                       return (
-                        <label key={cat} style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          marginBottom: '8px',
-                          cursor: 'pointer'
-                        }}>
+                        <label 
+                          key={cat} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            marginBottom: index === AVAILABLE_CATEGORIES.length - 1 ? '0' : '8px',
+                            cursor: 'pointer',
+                            lineHeight: '1.5',
+                            minHeight: '24px'
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1240,9 +1245,21 @@ function PinsManagement() {
                                 setEditPinData({...editPinData, category: currentCategories.filter(c => c !== cat)})
                               }
                             }}
-                            style={{ marginRight: '8px' }}
+                            style={{ 
+                              marginRight: '10px',
+                              marginTop: '0',
+                              marginBottom: '0',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              width: '18px',
+                              height: '18px'
+                            }}
                           />
-                          <span>{cat}</span>
+                          <span style={{ 
+                            display: 'inline-block',
+                            verticalAlign: 'middle',
+                            lineHeight: '1.5'
+                          }}>{cat}</span>
                         </label>
                       )
                     })}
