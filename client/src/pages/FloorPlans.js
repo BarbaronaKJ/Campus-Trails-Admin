@@ -12,6 +12,7 @@ function FloorPlans() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // Separate state for input field
   const [addingFloor, setAddingFloor] = useState(null); // { pinId }
   const [editingFloor, setEditingFloor] = useState(null); // { pinId, floorIndex }
   const [addingRoom, setAddingRoom] = useState(null); // { pinId, floorIndex }
@@ -57,7 +58,7 @@ function FloorPlans() {
         );
       }
 
-      // Filter by search query
+      // Filter by search query (only when searchQuery is set, not on every keystroke)
       if (searchQuery) {
         allPins = allPins.filter(pin =>
           pin.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -181,6 +182,25 @@ function FloorPlans() {
     updatePinFloors(pinId, updatedFloors);
   };
 
+  const handleReorderRooms = (pinId, floorIndex, sourceIndex, destinationIndex) => {
+    const pin = pins.find(p => (p._id || p.id) === pinId);
+    if (!pin || !pin.floors || !pin.floors[floorIndex]) return;
+
+    const updatedFloors = [...pin.floors];
+    const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
+    
+    // Remove from source and insert at destination
+    const [movedRoom] = updatedRooms.splice(sourceIndex, 1);
+    updatedRooms.splice(destinationIndex, 0, movedRoom);
+    
+    updatedFloors[floorIndex] = {
+      ...updatedFloors[floorIndex],
+      rooms: updatedRooms
+    };
+
+    updatePinFloors(pinId, updatedFloors);
+  };
+
   const updatePinFloors = async (pinId, floors) => {
     try {
       setError('');
@@ -271,13 +291,40 @@ function FloorPlans() {
           </div>
           <div className="form-group" style={{ flex: '1', minWidth: '200px' }}>
             <label>Search Pins</label>
-            <input
-              type="text"
-              placeholder="Search by title or description..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="form-group input"
-            />
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <input
+                type="text"
+                placeholder="Search by title or description..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    setSearchQuery(searchInput);
+                  }
+                }}
+                className="form-group input"
+                style={{ flex: 1 }}
+              />
+              <button
+                onClick={() => setSearchQuery(searchInput)}
+                className="btn btn-primary"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Search
+              </button>
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchInput('');
+                    setSearchQuery('');
+                  }}
+                  className="btn btn-secondary"
+                  style={{ whiteSpace: 'nowrap' }}
+                >
+                  Clear
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -588,7 +635,34 @@ function FloorPlans() {
                                                                  editingRoom?.roomIndex === roomIndex;
                                             
                                             return (
-                                              <div key={roomIndex} className="room-card">
+                                              <div 
+                                                key={roomIndex} 
+                                                className="room-card"
+                                                draggable
+                                                onDragStart={(e) => {
+                                                  e.dataTransfer.setData('text/plain', JSON.stringify({ pinId, floorIndex, roomIndex }));
+                                                  e.currentTarget.style.opacity = '0.5';
+                                                }}
+                                                onDragEnd={(e) => {
+                                                  e.currentTarget.style.opacity = '1';
+                                                }}
+                                                onDragOver={(e) => {
+                                                  e.preventDefault();
+                                                  e.currentTarget.style.borderTop = '3px solid #007bff';
+                                                }}
+                                                onDragLeave={(e) => {
+                                                  e.currentTarget.style.borderTop = '';
+                                                }}
+                                                onDrop={(e) => {
+                                                  e.preventDefault();
+                                                  e.currentTarget.style.borderTop = '';
+                                                  const sourceData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                                                  if (sourceData.pinId === pinId && sourceData.floorIndex === floorIndex && sourceData.roomIndex !== roomIndex) {
+                                                    handleReorderRooms(pinId, floorIndex, sourceData.roomIndex, roomIndex);
+                                                  }
+                                                }}
+                                                style={{ cursor: 'move' }}
+                                              >
                                                 {isEditingRoom ? (
                                                   <div className="room-edit-form">
                                                     <h6 style={{ margin: '0 0 15px 0', color: '#007bff' }}>Edit Room</h6>
