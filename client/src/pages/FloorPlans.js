@@ -132,11 +132,17 @@ function FloorPlans() {
     }
 
     const updatedFloors = [...pin.floors];
+    const existingRooms = updatedFloors[floorIndex].rooms || [];
+    // Set order to next available number (max + 1) or 0 if no rooms
+    const maxOrder = existingRooms.length > 0 
+      ? Math.max(...existingRooms.map(r => r.order || 0))
+      : -1;
     updatedFloors[floorIndex] = {
       ...updatedFloors[floorIndex],
-      rooms: [...(updatedFloors[floorIndex].rooms || []), {
+      rooms: [...existingRooms, {
         name: roomData.name.trim(),
-        description: roomData.description || ''
+        description: roomData.description || '',
+        order: roomData.order !== undefined ? roomData.order : (maxOrder + 1)
       }]
     };
 
@@ -624,14 +630,29 @@ function FloorPlans() {
                                       {/* Add Room Form */}
                                       {addingRoom?.pinId === pinId && addingRoom?.floorIndex === floorIndex && (
                                         <div className="room-add-form">
-                                          <div className="form-group">
-                                            <label>Room Name *</label>
-                                            <input
-                                              type="text"
-                                              placeholder="e.g., Room 101, Lab A, Office 1"
-                                              className="form-group input"
-                                              id={`new-room-name-${pinId}-${floorIndex}`}
-                                            />
+                                          <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', marginBottom: '15px' }}>
+                                            <div className="form-group">
+                                              <label>Order *</label>
+                                              <input
+                                                type="number"
+                                                placeholder="1, 2, 3..."
+                                                className="form-group input"
+                                                id={`new-room-order-${pinId}-${floorIndex}`}
+                                                min="0"
+                                              />
+                                              <small style={{ color: '#666', fontSize: '11px' }}>
+                                                Display order (1, 2, 3...)
+                                              </small>
+                                            </div>
+                                            <div className="form-group">
+                                              <label>Room Name *</label>
+                                              <input
+                                                type="text"
+                                                placeholder="e.g., Room 101, Lab A, Office 1"
+                                                className="form-group input"
+                                                id={`new-room-name-${pinId}-${floorIndex}`}
+                                              />
+                                            </div>
                                           </div>
                                           <div className="form-group">
                                             <label>Description</label>
@@ -647,14 +668,17 @@ function FloorPlans() {
                                               onClick={() => {
                                                 const nameInput = document.getElementById(`new-room-name-${pinId}-${floorIndex}`);
                                                 const descInput = document.getElementById(`new-room-desc-${pinId}-${floorIndex}`);
+                                                const orderInput = document.getElementById(`new-room-order-${pinId}-${floorIndex}`);
                                                 
                                                 handleSaveNewRoom(pinId, floorIndex, {
                                                   name: nameInput.value,
-                                                  description: descInput.value
+                                                  description: descInput.value,
+                                                  order: orderInput.value ? parseInt(orderInput.value) : undefined
                                                 });
                                                 
                                                 nameInput.value = '';
                                                 descInput.value = '';
+                                                orderInput.value = '';
                                               }}
                                               className="btn btn-primary"
                                             >
@@ -673,34 +697,60 @@ function FloorPlans() {
                                       {/* Rooms List */}
                                       {floor.rooms && floor.rooms.length > 0 ? (
                                         <div className="rooms-list">
-                                          {floor.rooms.map((room, roomIndex) => {
+                                          {/* Sort rooms by order, then by name if order is same */}
+                                          {[...(floor.rooms || [])].sort((a, b) => {
+                                            const orderA = a.order !== undefined ? a.order : Infinity;
+                                            const orderB = b.order !== undefined ? b.order : Infinity;
+                                            if (orderA !== orderB) {
+                                              return orderA - orderB;
+                                            }
+                                            return (a.name || '').localeCompare(b.name || '');
+                                          }).map((room, roomIndex) => {
+                                            // Find the original index in the unsorted array
+                                            const originalIndex = floor.rooms.findIndex(r => r === room);
                                             const isEditingRoom = editingRoom?.pinId === pinId && 
                                                                  editingRoom?.floorIndex === floorIndex && 
-                                                                 editingRoom?.roomIndex === roomIndex;
+                                                                 editingRoom?.roomIndex === originalIndex;
                                             
                                             return (
                                               <div 
-                                                key={roomIndex} 
+                                                key={`${roomIndex}-${originalIndex}`} 
                                                 className="room-card"
                                               >
                                                 {isEditingRoom ? (
                                                   <div className="room-edit-form">
                                                     <h6 style={{ margin: '0 0 15px 0', color: '#007bff' }}>Edit Room</h6>
-                                                    <div className="form-group">
-                                                      <label>Room Name *</label>
-                                                      <input
-                                                        type="text"
-                                                        value={room.name}
-                                                        onChange={(e) => handleUpdateRoom(pinId, floorIndex, roomIndex, { name: e.target.value })}
-                                                        className="form-group input"
-                                                        required
-                                                      />
+                                                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '15px', marginBottom: '15px' }}>
+                                                      <div className="form-group">
+                                                        <label>Order *</label>
+                                                        <input
+                                                          type="number"
+                                                          value={room.order !== undefined ? room.order : ''}
+                                                          onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { order: parseInt(e.target.value) || 0 })}
+                                                          className="form-group input"
+                                                          min="0"
+                                                          required
+                                                        />
+                                                        <small style={{ color: '#666', fontSize: '11px' }}>
+                                                          Display order (1, 2, 3...)
+                                                        </small>
+                                                      </div>
+                                                      <div className="form-group">
+                                                        <label>Room Name *</label>
+                                                        <input
+                                                          type="text"
+                                                          value={room.name}
+                                                          onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { name: e.target.value })}
+                                                          className="form-group input"
+                                                          required
+                                                        />
+                                                      </div>
                                                     </div>
                                                     <div className="form-group">
                                                       <label>Description</label>
                                                       <textarea
                                                         value={room.description || ''}
-                                                        onChange={(e) => handleUpdateRoom(pinId, floorIndex, roomIndex, { description: e.target.value })}
+                                                        onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { description: e.target.value })}
                                                         className="form-group textarea"
                                                         rows="4"
                                                         placeholder="Room description, features, capacity..."
@@ -716,7 +766,7 @@ function FloorPlans() {
                                                       <button
                                                         onClick={() => {
                                                           if (window.confirm('Delete this room?')) {
-                                                            handleDeleteRoom(pinId, floorIndex, roomIndex);
+                                                            handleDeleteRoom(pinId, floorIndex, originalIndex);
                                                             setEditingRoom(null);
                                                           }
                                                         }}
@@ -736,7 +786,23 @@ function FloorPlans() {
                                                   <div className="room-display-card">
                                                     <div className="room-display-content">
                                                       <div className="room-info" style={{ width: '100%' }}>
-                                                        <h6>{room.name}</h6>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                          {room.order !== undefined && (
+                                                            <span style={{
+                                                              backgroundColor: '#007bff',
+                                                              color: 'white',
+                                                              borderRadius: '12px',
+                                                              padding: '2px 8px',
+                                                              fontSize: '11px',
+                                                              fontWeight: 'bold',
+                                                              minWidth: '24px',
+                                                              textAlign: 'center'
+                                                            }}>
+                                                              {room.order}
+                                                            </span>
+                                                          )}
+                                                          <h6 style={{ margin: 0, flex: 1 }}>{room.name}</h6>
+                                                        </div>
                                                         {room.description && (
                                                           <p>{room.description}</p>
                                                         )}
@@ -749,14 +815,14 @@ function FloorPlans() {
                                                     </div>
                                                     <div className="room-actions">
                                                       <button
-                                                        onClick={() => setEditingRoom({ pinId, floorIndex, roomIndex })}
+                                                        onClick={() => setEditingRoom({ pinId, floorIndex, roomIndex: originalIndex })}
                                                         className="btn btn-primary"
                                                         style={{ fontSize: '12px', padding: '6px 12px' }}
                                                       >
                                                         Edit
                                                       </button>
                                                       <button
-                                                        onClick={() => handleDeleteRoom(pinId, floorIndex, roomIndex)}
+                                                        onClick={() => handleDeleteRoom(pinId, floorIndex, originalIndex)}
                                                         className="btn btn-danger"
                                                         style={{ fontSize: '12px', padding: '6px 12px' }}
                                                       >
