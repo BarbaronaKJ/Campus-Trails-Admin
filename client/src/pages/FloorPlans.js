@@ -212,10 +212,13 @@ function FloorPlans() {
       const roomsWithoutCurrent = updatedRooms.filter((_, idx) => idx !== roomIndex);
       
       // Check if newOrder conflicts with any other room
-      const conflictingRoomIndex = roomsWithoutCurrent.findIndex(r => r.order !== undefined && r.order !== null && r.order === newOrder);
+      const hasConflict = roomsWithoutCurrent.some(r => r.order !== undefined && r.order !== null && r.order === newOrder);
       
-      if (conflictingRoomIndex !== -1 || (oldOrder !== undefined && oldOrder !== null)) {
-        // There's a conflict or the order changed - need to rearrange
+      // Determine if we need to rearrange: conflict exists OR moving to a lower position
+      const movingToLowerPosition = (oldOrder !== undefined && oldOrder !== null && oldOrder > newOrder);
+      
+      if (hasConflict || movingToLowerPosition) {
+        // There's a conflict or moving to lower position - need to rearrange
         // Strategy: Shift all rooms with order >= newOrder (except current room) by +1
         const adjustedRooms = updatedRooms.map((room, idx) => {
           if (idx === roomIndex) {
@@ -234,7 +237,7 @@ function FloorPlans() {
           rooms: adjustedRooms
         };
       } else {
-        // No conflict, just update the room
+        // No conflict and not moving to lower position, just update the room
         updatedRooms[roomIndex] = finalRoomData;
         updatedFloors[floorIndex] = {
           ...updatedFloors[floorIndex],
