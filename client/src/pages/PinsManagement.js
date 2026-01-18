@@ -124,8 +124,11 @@ function PinsManagement() {
     }
   }
 
-  // Check if selected campus is USTP-CDO (for map display)
+  // Check if selected campus has a map image URL
   const selectedCampusObj = campuses.find(c => c._id === selectedCampus || c._id === selectedCampus?._id)
+  const hasMapImage = selectedCampus === 'all' 
+    ? false // Don't show map when "all" is selected
+    : (selectedCampusObj && selectedCampusObj.mapImageUrl) // Show map if campus has mapImageUrl
   const isUSTPCDO = selectedCampus === 'all' || (selectedCampusObj && selectedCampusObj.name && selectedCampusObj.name.toLowerCase().includes('ustp') && selectedCampusObj.name.toLowerCase().includes('cdo'))
   
   const filteredPins = pins.filter(pin => {
@@ -671,7 +674,7 @@ function PinsManagement() {
           </div>
         </div>
         
-        {showMapViewer && isUSTPCDO && (
+        {showMapViewer && hasMapImage && (
           <div className="map-viewer-container">
             <div className="map-viewer-info">
               {mapClickMode ? (
@@ -827,7 +830,7 @@ function PinsManagement() {
                 }}
               >
                 <image
-                  href="/ustp-cdo-map.png"
+                  href={selectedCampusObj?.mapImageUrl || "/ustp-cdo-map.png"}
                   width="1920"
                   height="1310"
                   style={{
@@ -910,11 +913,11 @@ function PinsManagement() {
             </div>
           </div>
         )}
-        {showMapViewer && !isUSTPCDO && (
+        {showMapViewer && !hasMapImage && (
           <div className="map-viewer-container">
             <div style={{ padding: '40px', textAlign: 'center', color: '#7f8c8d' }}>
-              <p>Map view is only available for USTP-CDO campus.</p>
-              <p>Please select USTP-CDO from the campus filter to view the map.</p>
+              <p>Map view is not available for this campus.</p>
+              <p>Please select a campus with a map image configured, or add a map image URL in the Campuses section.</p>
             </div>
           </div>
         )}
