@@ -722,11 +722,21 @@ function FloorPlans() {
                                                         <label>Order *</label>
                                                         <input
                                                           type="number"
-                                                          value={editingRoomData?.order !== undefined ? editingRoomData.order : (room.order !== undefined ? room.order : '')}
+                                                          value={editingRoomData?.order !== undefined && editingRoomData.order !== null ? editingRoomData.order : (room.order !== undefined && room.order !== null ? room.order : '')}
                                                           onChange={(e) => {
+                                                            e.preventDefault();
+                                                            e.stopPropagation();
                                                             const value = e.target.value;
-                                                            const orderValue = value === '' ? undefined : parseInt(value);
-                                                            handleUpdateRoom(pinId, floorIndex, originalIndex, { order: isNaN(orderValue) ? undefined : orderValue });
+                                                            const orderValue = value === '' ? undefined : (value === '-' ? undefined : parseInt(value, 10));
+                                                            if (!isNaN(orderValue) || orderValue === undefined) {
+                                                              handleUpdateRoom(pinId, floorIndex, originalIndex, { order: orderValue });
+                                                            }
+                                                          }}
+                                                          onKeyDown={(e) => {
+                                                            if (e.key === 'Enter') {
+                                                              e.preventDefault();
+                                                              e.stopPropagation();
+                                                            }
                                                           }}
                                                           className="form-group input"
                                                           min="0"
@@ -759,7 +769,10 @@ function FloorPlans() {
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '10px' }}>
                                                       <button
-                                                        onClick={() => {
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
                                                           handleSaveRoom(pinId, floorIndex, originalIndex);
                                                           setEditingRoom(null);
                                                         }}
@@ -768,7 +781,10 @@ function FloorPlans() {
                                                         ✓ Save Changes
                                                       </button>
                                                       <button
-                                                        onClick={() => {
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
                                                           if (window.confirm('Delete this room?')) {
                                                             handleDeleteRoom(pinId, floorIndex, originalIndex);
                                                             setEditingRoom(null);
@@ -779,7 +795,10 @@ function FloorPlans() {
                                                         Delete
                                                       </button>
                                                       <button
-                                                        onClick={() => {
+                                                        type="button"
+                                                        onClick={(e) => {
+                                                          e.preventDefault();
+                                                          e.stopPropagation();
                                                           setEditingRoom(null);
                                                           setEditingRoomData(null);
                                                         }}
