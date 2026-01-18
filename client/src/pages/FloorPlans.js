@@ -729,13 +729,18 @@ function FloorPlans() {
                                       {/* Rooms List */}
                                       {floor.rooms && floor.rooms.length > 0 ? (
                                         <div className="rooms-list">
-                                          {/* Sort rooms by order, then by name if order is same */}
+                                          {/* Sort rooms by order (ascending), then by name if order is same or both undefined */}
                                           {[...(floor.rooms || [])].sort((a, b) => {
-                                            const orderA = a.order !== undefined ? a.order : Infinity;
-                                            const orderB = b.order !== undefined ? b.order : Infinity;
+                                            // Get order values, use Infinity for undefined (pushes to end) or use a very large number
+                                            const orderA = a.order !== undefined && a.order !== null ? Number(a.order) : Infinity;
+                                            const orderB = b.order !== undefined && b.order !== null ? Number(b.order) : Infinity;
+                                            
+                                            // First sort by order
                                             if (orderA !== orderB) {
                                               return orderA - orderB;
                                             }
+                                            
+                                            // If order is the same (or both are undefined), sort by name
                                             return (a.name || '').localeCompare(b.name || '');
                                           }).map((room, roomIndex) => {
                                             // Find the original index in the unsorted array
