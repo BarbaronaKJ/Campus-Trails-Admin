@@ -1,421 +1,569 @@
-import React, { useState, useEffect } from 'react';
-import { getApiBaseUrl } from '../utils/apiConfig';
-import QRCode from 'qrcode.react';
-import './MapDataManager.css'; // Reuse styles
+import { useState, useEffect } from 'react'
+import { getApiBaseUrl } from '../utils/apiConfig'
+import { pinsAPI } from '../services/api'
+// Use qrcode library (not qrcode.react) - this is a Node.js library that works in browser
+// Import the default export explicitly
+import QRCodeLib from 'qrcode'
+import './MapDataManager.css'
 
 function QRCodeManager() {
-  const [pins, setPins] = useState([]);
-  const [campuses, setCampuses] = useState([]);
-  const [selectedCampus, setSelectedCampus] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedRoom, setSelectedRoom] = useState(null);
-  const [generatingQRCode, setGeneratingQRCode] = useState(null);
-  const [roomQRCodes, setRoomQRCodes] = useState({}); // { pinId_floorLevel_roomName: qrCode }
+  const [buildings, setBuildings] = useState([])
+  const [rooms, setRooms] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState('buildings') // 'buildings' or 'rooms'
+  const [searchQuery, setSearchQuery] = useState('')
+  const [selectedItem, setSelectedItem] = useState(null) // For QR code preview modal
+  const [qrCodeImages, setQrCodeImages] = useState({}) // Cache QR code images
 
   useEffect(() => {
-    fetchData();
-  }, [selectedCampus]);
+    fetchData()
+  }, [])
+
+  // Generate QR code images for all items
+  useEffect(() => {
+    const generateQRImages = async () => {
+      const images = {}
+      
+      // Generate for buildings
+      for (const building of buildings) {
+        if (building.qrCode) {
+          try {
+            const dataUrl = await QRCodeLib.toDataURL(building.qrCode, { width: 200, margin: 1 })
+            images[`building-${building._id}`] = dataUrl
+          } catch (err) {
+            console.error('Error generating QR code for building:', building._id, err)
+          }
+        }
+      }
+      
+      // Generate for rooms
+      for (const room of rooms) {
+        if (room.qrCode) {
+          try {
+            const key = `room-${room.buildingId}-${room.floorLevel}-${room.name}`
+            const dataUrl = await QRCodeLib.toDataURL(room.qrCode, { width: 200, margin: 1 })
+            images[key] = dataUrl
+          } catch (err) {
+            console.error('Error generating QR code for room:', room.name, err)
+          }
+        }
+      }
+      
+      setQrCodeImages(images)
+    }
+    
+    if (buildings.length > 0 || rooms.length > 0) {
+      generateQRImages()
+    }
+  }, [buildings, rooms])
 
   const fetchData = async () => {
     try {
-      setLoading(true);
-      setError('');
-      const baseUrl = getApiBaseUrl();
-      const token = localStorage.getItem('adminToken');
-
+      setLoading(true)
+      setError('')
+      const baseUrl = getApiBaseUrl()
+      const token = localStorage.getItem('adminToken')
+      
       if (!token) {
-        setError('Please log in to access this page.');
-        setLoading(false);
-        return;
+        setError('Please log in to access this page.')
+        setLoading(false)
+        return
       }
 
-      const [pinsResponse, campusesResponse] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=false`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }),
-        fetch(`${baseUrl}/api/campuses`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        })
-      ]);
-
-      if (!pinsResponse.ok) {
-        throw new Error('Failed to fetch pins');
-      }
-
-      const pinsData = await pinsResponse.json();
-      let allPins = pinsData.pins || pinsData.data || [];
-
-      // Filter by campus if selected
-      if (selectedCampus !== 'all') {
-        allPins = allPins.filter(pin =>
-          pin.campusId?._id === selectedCampus ||
-          pin.campusId === selectedCampus ||
-          (typeof pin.campusId === 'object' && pin.campusId._id === selectedCampus)
-        );
-      }
-
-      setPins(allPins);
-
-      const campusesData = await campusesResponse.json();
-      setCampuses(campusesData.data?.campuses || campusesData.data || []);
-    } catch (err) {
-      console.error('Error fetching data:', err);
-      setError(err.message || 'Failed to fetch data');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateRoomQRCode = async (pin, floorIndex, roomIndex, room) => {
-    try {
-      setGeneratingQRCode(`${pin._id || pin.id}_${floorIndex}_${roomIndex}`);
-      const baseUrl = getApiBaseUrl();
-      const token = localStorage.getItem('adminToken');
-
-      // Generate a unique QR code identifier
-      const qrCodeId = `ROOM-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`.toUpperCase();
-
-      // Update pin with new QR code
-      const updatedFloors = JSON.parse(JSON.stringify(pin.floors || []));
-      if (!updatedFloors[floorIndex]) updatedFloors[floorIndex] = { rooms: [] };
-      if (!updatedFloors[floorIndex].rooms) updatedFloors[floorIndex].rooms = [];
-      if (updatedFloors[floorIndex].rooms[roomIndex]) {
-        updatedFloors[floorIndex].rooms[roomIndex].qrCode = qrCodeId;
-      }
-
-      const response = await fetch(`${baseUrl}/api/admin/pins/${pin._id || pin.id}`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          floors: updatedFloors
-        })
-      });
+      const response = await fetch(`${baseUrl}/api/admin/pins?includeInvisible=false&limit=1000`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
 
       if (!response.ok) {
-        throw new Error('Failed to generate QR code');
+        throw new Error(`Failed to fetch pins: ${response.status}`)
       }
 
-      setSuccess(`QR Code generated for ${room.name}: ${qrCodeId}`);
-      setTimeout(() => setSuccess(''), 3000);
+      const data = await response.json()
+      const pins = data.success ? data.pins : (data.data || [])
 
-      // Update room QR codes state
-      setRoomQRCodes(prev => ({
-        ...prev,
-        [`${pin._id || pin.id}_${floorIndex}_${roomIndex}`]: qrCodeId
-      }));
+      // Separate buildings and rooms
+      const buildingList = []
+      const roomList = []
 
-      // Refresh pins
-      fetchData();
+      pins.forEach(pin => {
+        // Add building if it has a QR code or is visible
+        if (pin.isVisible && pin.pinType === 'facility') {
+          buildingList.push({
+            ...pin,
+            type: 'building',
+            displayName: pin.description || pin.title,
+            qrCode: pin.qrCode || generateBuildingQRCode(pin.id)
+          })
+        }
+
+        // Extract rooms from floors
+        if (pin.floors && Array.isArray(pin.floors)) {
+          pin.floors.forEach(floor => {
+            if (floor.rooms && Array.isArray(floor.rooms)) {
+              floor.rooms.forEach(room => {
+                roomList.push({
+                  ...room,
+                  type: 'room',
+                  buildingId: pin.id,
+                  buildingName: pin.description || pin.title,
+                  buildingNumber: pin.buildingNumber,
+                  floorLevel: floor.level,
+                  floorName: getFloorName(floor.level),
+                  displayName: room.name,
+                  qrCode: room.qrCode || generateRoomQRCode(pin.id, floor.level, room.name)
+                })
+              })
+            }
+          })
+        }
+      })
+
+      setBuildings(buildingList)
+      setRooms(roomList)
+      setLoading(false)
     } catch (err) {
-      console.error('Error generating QR code:', err);
-      setError(err.message || 'Failed to generate QR code');
-    } finally {
-      setGeneratingQRCode(null);
+      console.error('Fetch error:', err)
+      setError(err.message || 'Failed to fetch data')
+      setLoading(false)
     }
-  };
-
-  const generateRoomDeepLink = (roomQRCode, isProduction = true) => {
-    if (isProduction) {
-      return `campustrails://qr/${roomQRCode}`;
-    } else {
-      const expoUrl = process.env.EXPO_URL || 'exp://192.168.1.100:8081';
-      return `${expoUrl}/--/qr/${roomQRCode}`;
-    }
-  };
-
-  const downloadQRCode = (roomName, qrCodeRef) => {
-    if (qrCodeRef) {
-      const element = qrCodeRef.querySelector('canvas');
-      if (element) {
-        const url = element.toDataURL('image/png');
-        const link = document.createElement('a');
-        link.download = `${roomName}_qrcode.png`;
-        link.href = url;
-        link.click();
-      }
-    }
-  };
-
-  if (loading) {
-    return <div className="container" style={{ textAlign: 'center', padding: '40px' }}>Loading...</div>;
   }
 
-  const pinsWithRooms = pins.filter(pin => pin.floors && pin.floors.some(f => f.rooms && f.rooms.length > 0));
+  const getFloorName = (level) => {
+    if (level === 0) return 'Ground Floor'
+    const floorNumber = level + 1
+    const lastDigit = floorNumber % 10
+    const lastTwoDigits = floorNumber % 100
+    let suffix = 'th'
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+      suffix = 'th'
+    } else if (lastDigit === 1) {
+      suffix = 'st'
+    } else if (lastDigit === 2) {
+      suffix = 'nd'
+    } else if (lastDigit === 3) {
+      suffix = 'rd'
+    }
+    return `${floorNumber}${suffix} Floor`
+  }
+
+  const generateBuildingQRCode = (pinId) => {
+    return `campustrails://pin/${pinId}`
+  }
+
+  const generateRoomQRCode = (buildingId, floorLevel, roomName) => {
+    // Generate a unique identifier for the room
+    const roomId = `${buildingId}_f${floorLevel}_${roomName.replace(/\s+/g, '_')}`
+    return `campustrails://room/${roomId}`
+  }
+
+  const handleGenerateQRCode = async (item) => {
+    try {
+      const baseUrl = getApiBaseUrl()
+      const token = localStorage.getItem('adminToken')
+
+      if (item.type === 'building') {
+        // Update building QR code
+        const qrCode = generateBuildingQRCode(item.id)
+        const response = await fetch(`${baseUrl}/api/admin/pins/${item._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ qrCode })
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to update building QR code')
+        }
+
+        // Update local state
+        setBuildings(prev => prev.map(b => 
+          b._id === item._id ? { ...b, qrCode } : b
+        ))
+      } else if (item.type === 'room') {
+        // Update room QR code in building
+        const response = await fetch(`${baseUrl}/api/admin/pins/${item.buildingId}`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch building data')
+        }
+
+        const buildingData = await response.json()
+        const building = buildingData.success ? buildingData.pin : buildingData.data
+
+        // Find and update the room
+        const updatedFloors = building.floors.map(floor => {
+          if (floor.level === item.floorLevel) {
+            const updatedRooms = floor.rooms.map(room => {
+              if (room.name === item.name) {
+                return { ...room, qrCode: generateRoomQRCode(item.buildingId, item.floorLevel, item.name) }
+              }
+              return room
+            })
+            return { ...floor, rooms: updatedRooms }
+          }
+          return floor
+        })
+
+        // Update building with new room QR code
+        const updateResponse = await fetch(`${baseUrl}/api/admin/pins/${building._id}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ floors: updatedFloors })
+        })
+
+        if (!updateResponse.ok) {
+          throw new Error('Failed to update room QR code')
+        }
+
+        // Update local state
+        const newQrCode = generateRoomQRCode(item.buildingId, item.floorLevel, item.name)
+        setRooms(prev => prev.map(r => 
+          r.buildingId === item.buildingId && 
+          r.floorLevel === item.floorLevel && 
+          r.name === item.name 
+            ? { ...r, qrCode: newQrCode } 
+            : r
+        ))
+      }
+
+      alert('QR code generated successfully!')
+    } catch (err) {
+      console.error('Generate QR code error:', err)
+      alert('Failed to generate QR code: ' + err.message)
+    }
+  }
+
+  const downloadQRCode = async (item) => {
+    try {
+      const key = item.type === 'building' 
+        ? `building-${item._id}`
+        : `room-${item.buildingId}-${item.floorLevel}-${item.name}`
+      
+      const dataUrl = qrCodeImages[key] || await QRCodeLib.toDataURL(item.qrCode, { width: 300, margin: 1 })
+      
+      const link = document.createElement('a')
+      link.download = `${item.displayName.replace(/\s+/g, '_')}_QR.png`
+      link.href = dataUrl
+      link.click()
+    } catch (err) {
+      console.error('Error downloading QR code:', err)
+      alert('Failed to download QR code')
+    }
+  }
+
+  const filteredItems = selectedCategory === 'buildings' 
+    ? buildings.filter(b => 
+        b.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (b.qrCode && b.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+    : rooms.filter(r => 
+        r.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        r.buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (r.qrCode && r.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
+      )
+
+  if (loading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        <p>Loading QR codes...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div style={{ padding: '20px' }}>
+        <div style={{ color: 'red', marginBottom: '10px' }}>{error}</div>
+        <button onClick={fetchData}>Retry</button>
+      </div>
+    )
+  }
 
   return (
-    <div className="container">
-      <div className="header-section">
-        <h1>🏷️ QR Code Manager - Room QR Codes</h1>
-        <p>Generate and manage QR codes for building rooms</p>
+    <div style={{ padding: '20px' }}>
+      <h1 style={{ marginBottom: '20px' }}>QR Code Manager</h1>
+
+      {/* Category Tabs */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', borderBottom: '2px solid #ddd' }}>
+        <button
+          onClick={() => setSelectedCategory('buildings')}
+          style={{
+            padding: '10px 20px',
+            border: 'none',
+            background: selectedCategory === 'buildings' ? '#007bff' : 'transparent',
+            color: selectedCategory === 'buildings' ? 'white' : '#333',
+            cursor: 'pointer',
+            borderBottom: selectedCategory === 'buildings' ? '3px solid #007bff' : '3px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          Buildings ({buildings.length})
+        </button>
+        <button
+          onClick={() => setSelectedCategory('rooms')}
+          style={{
+            padding: '10px 20px',
+            border: 'none',
+            background: selectedCategory === 'rooms' ? '#007bff' : 'transparent',
+            color: selectedCategory === 'rooms' ? 'white' : '#333',
+            cursor: 'pointer',
+            borderBottom: selectedCategory === 'rooms' ? '3px solid #007bff' : '3px solid transparent',
+            marginBottom: '-2px'
+          }}
+        >
+          Rooms ({rooms.length})
+        </button>
       </div>
 
-      {error && <div className="alert alert-danger">{error}</div>}
-      {success && <div className="alert alert-success">{success}</div>}
-
-      {/* Filter and Search */}
-      <div className="filter-section" style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-          <div className="form-group" style={{ flex: '1', minWidth: '200px' }}>
-            <label className="label">Campus</label>
-            <select
-              className="input"
-              value={selectedCampus}
-              onChange={(e) => setSelectedCampus(e.target.value)}
-            >
-              <option value="all">All Campuses</option>
-              {campuses.map(campus => (
-                <option key={campus._id} value={campus._id}>
-                  {campus.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="form-group" style={{ flex: '1', minWidth: '200px' }}>
-            <label className="label">Search</label>
-            <input
-              type="text"
-              className="input"
-              placeholder="Search buildings or rooms..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-          </div>
-        </div>
+      {/* Search Bar */}
+      <div style={{ marginBottom: '20px' }}>
+        <input
+          type="text"
+          placeholder={`Search ${selectedCategory}...`}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{
+            width: '100%',
+            maxWidth: '500px',
+            padding: '10px',
+            fontSize: '16px',
+            border: '1px solid #ddd',
+            borderRadius: '4px'
+          }}
+        />
       </div>
 
-      {/* Room QR Codes List */}
-      <div className="card">
-        <h2 style={{ marginBottom: '20px' }}>
-          Rooms with QR Codes ({pinsWithRooms.length} buildings)
-        </h2>
-
-        {pinsWithRooms.length === 0 ? (
-          <p style={{ padding: '20px', textAlign: 'center', color: '#7f8c8d' }}>
-            No buildings with rooms found. Add rooms in the Floor Plans section first.
-          </p>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '20px' }}>
-            {pinsWithRooms.map(pin => (
-              <div key={pin._id || pin.id} style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '15px', backgroundColor: '#f9f9f9' }}>
-                <h3 style={{ margin: '0 0 15px 0', color: '#2c3e50' }}>{pin.title || 'Building'}</h3>
-
-                {pin.floors && pin.floors.map((floor, floorIndex) => (
-                  floor.rooms && floor.rooms.length > 0 && (
-                    <div key={`floor-${floorIndex}`} style={{ marginBottom: '15px' }}>
-                      <h4 style={{ margin: '10px 0', color: '#34495e', fontSize: '14px' }}>
-                        Floor {floor.level}
-                      </h4>
-
-                      {floor.rooms.map((room, roomIndex) => {
-                        const key = `${pin._id || pin.id}_${floorIndex}_${roomIndex}`;
-                        const qrCode = room.qrCode;
-
-                        return (
-                          <div
-                            key={key}
-                            style={{
-                              marginBottom: '12px',
-                              padding: '10px',
-                              backgroundColor: qrCode ? '#e8f5e9' : '#fff3cd',
-                              border: `2px solid ${qrCode ? '#4caf50' : '#ffc107'}`,
-                              borderRadius: '4px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center'
-                            }}
-                          >
-                            <div>
-                              <strong>{room.name}</strong>
-                              {room.description && (
-                                <div style={{ fontSize: '12px', color: '#666' }}>
-                                  {room.description}
-                                </div>
-                              )}
-                              {qrCode && (
-                                <div style={{ fontSize: '12px', color: '#4caf50', marginTop: '5px' }}>
-                                  ✅ QR Code: {qrCode}
-                                </div>
-                              )}
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '5px' }}>
-                              {!qrCode ? (
-                                <button
-                                  className="button button-small button-primary"
-                                  onClick={() => generateRoomQRCode(pin, floorIndex, roomIndex, room)}
-                                  disabled={generatingQRCode === key}
-                                >
-                                  {generatingQRCode === key ? '⏳' : '🏷️'} Generate
-                                </button>
-                              ) : (
-                                <button
-                                  className="button button-small button-secondary"
-                                  onClick={() => setSelectedRoom({ pin, floorIndex, roomIndex, room, qrCode })}
-                                >
-                                  📋 View
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )
-                ))}
+      {/* Items Grid */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+        gap: '20px' 
+      }}>
+        {filteredItems.map((item, index) => (
+          <div 
+            key={item._id || `${item.buildingId}-${item.floorLevel}-${item.name}`}
+            style={{
+              border: '1px solid #ddd',
+              borderRadius: '8px',
+              padding: '20px',
+              backgroundColor: '#fff',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+            }}
+          >
+            <h3 style={{ marginTop: 0, marginBottom: '10px' }}>
+              {item.displayName}
+            </h3>
+            
+            {item.type === 'room' && (
+              <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                <div><strong>Building:</strong> {item.buildingName}</div>
+                <div><strong>Floor:</strong> {item.floorName}</div>
               </div>
-            ))}
+            )}
+
+            {item.qrCode ? (
+              <>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'center', 
+                  padding: '20px',
+                  backgroundColor: '#f9f9f9',
+                  borderRadius: '4px',
+                  marginBottom: '15px'
+                }}>
+                  <img
+                    src={qrCodeImages[item.type === 'building' 
+                      ? `building-${item._id}`
+                      : `room-${item.buildingId}-${item.floorLevel}-${item.name}`] || ''}
+                    alt={`QR Code for ${item.displayName}`}
+                    style={{ width: '200px', height: '200px' }}
+                    onError={async (e) => {
+                      // Generate on error if not in cache
+                      try {
+                        const dataUrl = await QRCodeLib.toDataURL(item.qrCode, { width: 200, margin: 1 })
+                        e.target.src = dataUrl
+                        const key = item.type === 'building' 
+                          ? `building-${item._id}`
+                          : `room-${item.buildingId}-${item.floorLevel}-${item.name}`
+                        setQrCodeImages(prev => ({ ...prev, [key]: dataUrl }))
+                      } catch (err) {
+                        console.error('Error generating QR code:', err)
+                      }
+                    }}
+                  />
+                </div>
+                <div style={{ marginBottom: '10px', fontSize: '12px', color: '#666', wordBreak: 'break-all' }}>
+                  <strong>QR Code:</strong> {item.qrCode}
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => setSelectedItem(item)}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => downloadQRCode(item)}
+                    style={{
+                      flex: 1,
+                      padding: '10px',
+                      backgroundColor: '#28a745',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Download
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '20px' }}>
+                <p style={{ color: '#666', marginBottom: '15px' }}>No QR code generated</p>
+                <button
+                  onClick={() => handleGenerateQRCode(item)}
+                  style={{
+                    padding: '10px 20px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Generate QR Code
+                </button>
+              </div>
+            )}
           </div>
-        )}
+        ))}
       </div>
 
-      {/* QR Code Viewer Modal */}
-      {selectedRoom && (
+      {filteredItems.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+          <p>No {selectedCategory} found{searchQuery && ` matching "${searchQuery}"`}</p>
+        </div>
+      )}
+
+      {/* QR Code Preview Modal */}
+      {selectedItem && (
         <div
-          className="modal-overlay"
-          onClick={() => setSelectedRoom(null)}
-          style={{ zIndex: 1000 }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.8)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000
+          }}
+          onClick={() => setSelectedItem(null)}
         >
           <div
-            className="modal-content"
+            style={{
+              backgroundColor: 'white',
+              padding: '30px',
+              borderRadius: '8px',
+              maxWidth: '90%',
+              maxHeight: '90%',
+              overflow: 'auto',
+              textAlign: 'center'
+            }}
             onClick={(e) => e.stopPropagation()}
-            style={{ maxWidth: '500px' }}
           >
-            <div className="modal-header">
-              <h2>🏷️ Room QR Code</h2>
-              <button
-                className="close-button"
-                onClick={() => setSelectedRoom(null)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div style={{ padding: '20px', textAlign: 'center' }}>
-              <h3>{selectedRoom.room.name}</h3>
-              {selectedRoom.room.description && (
-                <p style={{ color: '#666', marginBottom: '15px' }}>
-                  {selectedRoom.room.description}
-                </p>
-              )}
-
-              <div style={{ marginBottom: '20px' }}>
-                <p style={{ fontSize: '12px', color: '#999', marginBottom: '10px' }}>
-                  Building: {selectedRoom.pin.title} | Floor {selectedRoom.pin.floors[selectedRoom.floorIndex].level}
-                </p>
+            <h2 style={{ marginTop: 0 }}>{selectedItem.displayName}</h2>
+            {selectedItem.type === 'room' && (
+              <div style={{ marginBottom: '20px', color: '#666' }}>
+                <div><strong>Building:</strong> {selectedItem.buildingName}</div>
+                <div><strong>Floor:</strong> {selectedItem.floorName}</div>
               </div>
-
-              {/* QR Code */}
-              <div
-                ref={(ref) => {
-                  if (ref && selectedRoom.qrCode) {
-                    const canvasElement = ref.querySelector('canvas');
-                    if (canvasElement) {
-                      selectedRoom.qrCodeCanvas = canvasElement;
-                    }
+            )}
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'center', 
+              padding: '20px',
+              backgroundColor: '#f9f9f9',
+              borderRadius: '4px',
+              marginBottom: '20px'
+            }}>
+              <img
+                src={qrCodeImages[selectedItem.type === 'building' 
+                  ? `building-${selectedItem._id}`
+                  : `room-${selectedItem.buildingId}-${selectedItem.floorLevel}-${selectedItem.name}`] || ''}
+                alt={`QR Code for ${selectedItem.displayName}`}
+                style={{ width: '300px', height: '300px' }}
+                onError={async (e) => {
+                  // Generate on error if not in cache
+                  try {
+                    const dataUrl = await QRCodeLib.toDataURL(selectedItem.qrCode, { width: 300, margin: 1 })
+                    e.target.src = dataUrl
+                    const key = selectedItem.type === 'building' 
+                      ? `building-${selectedItem._id}`
+                      : `room-${selectedItem.buildingId}-${selectedItem.floorLevel}-${selectedItem.name}`
+                    setQrCodeImages(prev => ({ ...prev, [key]: dataUrl }))
+                  } catch (err) {
+                    console.error('Error generating QR code:', err)
                   }
                 }}
+              />
+            </div>
+            <div style={{ marginBottom: '20px', fontSize: '14px', color: '#666', wordBreak: 'break-all' }}>
+              <strong>QR Code:</strong> {selectedItem.qrCode}
+            </div>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => downloadQRCode(selectedItem)}
                 style={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  marginBottom: '20px',
-                  padding: '20px',
-                  backgroundColor: '#f5f5f5',
-                  borderRadius: '8px'
+                  padding: '10px 20px',
+                  backgroundColor: '#28a745',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer'
                 }}
               >
-                <QRCode
-                  value={generateRoomDeepLink(selectedRoom.qrCode, true)}
-                  level="H"
-                  size={300}
-                  includeMargin={true}
-                />
-              </div>
-
-              {/* QR Code Details */}
-              <div style={{
-                backgroundColor: '#f0f8ff',
-                padding: '15px',
-                borderRadius: '4px',
-                marginBottom: '20px',
-                textAlign: 'left',
-                fontSize: '12px'
-              }}>
-                <p style={{ margin: '5px 0' }}>
-                  <strong>QR Code ID:</strong> {selectedRoom.qrCode}
-                </p>
-                <p style={{ margin: '5px 0' }}>
-                  <strong>Deep Link:</strong>
-                </p>
-                <code style={{
-                  display: 'block',
-                  padding: '8px',
-                  backgroundColor: '#fff',
+                Download
+              </button>
+              <button
+                onClick={() => setSelectedItem(null)}
+                style={{
+                  padding: '10px 20px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
                   borderRadius: '4px',
-                  wordBreak: 'break-all',
-                  border: '1px solid #ddd'
-                }}>
-                  {generateRoomDeepLink(selectedRoom.qrCode, true)}
-                </code>
-              </div>
-
-              {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-                <button
-                  className="button button-primary"
-                  onClick={() => {
-                    const element = document.querySelector('.qrcode-download-ref');
-                    downloadQRCode(selectedRoom.room.name, element);
-                  }}
-                >
-                  ⬇️ Download PNG
-                </button>
-
-                <button
-                  className="button button-secondary"
-                  onClick={() => {
-                    const link = generateRoomDeepLink(selectedRoom.qrCode, true);
-                    const qrElement = document.querySelector('canvas');
-                    if (qrElement) {
-                      const url = qrElement.toDataURL('image/png');
-                      const shareText = `Scan this QR code to visit ${selectedRoom.room.name} in Campus Trails!\n${link}`;
-                      if (navigator.share) {
-                        navigator.share({
-                          title: selectedRoom.room.name,
-                          text: shareText
-                        });
-                      } else {
-                        alert(shareText);
-                      }
-                    }
-                  }}
-                >
-                  📤 Share
-                </button>
-              </div>
+                  cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>
       )}
-
-      <div className="qrcode-download-ref" style={{ display: 'none' }}>
-        {selectedRoom && (
-          <QRCode
-            value={generateRoomDeepLink(selectedRoom.qrCode, true)}
-            level="H"
-            size={300}
-            includeMargin={true}
-          />
-        )}
-      </div>
     </div>
-  );
+  )
 }
 
-export default QRCodeManager;
+export default QRCodeManager

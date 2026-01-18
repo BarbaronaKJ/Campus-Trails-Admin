@@ -25,7 +25,8 @@ const campusSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  collection: 'campuses'
+  collection: 'campuses',
+  suppressReservedKeysWarning: true
 });
 
 module.exports = mongoose.model('Campus', campusSchema);

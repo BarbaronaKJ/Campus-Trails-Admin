@@ -85,7 +85,8 @@ const analyticsSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  collection: 'analytics'
+  collection: 'analytics',
+  suppressReservedKeysWarning: true
 });
 
 // Indexes for efficient querying

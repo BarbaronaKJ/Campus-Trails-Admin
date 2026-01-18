@@ -47,7 +47,8 @@ const feedbackSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true,
-  collection: 'feedbacks'
+  collection: 'feedbacks',
+  suppressReservedKeysWarning: true
 });
 
 feedbackSchema.pre('save', function(next) {

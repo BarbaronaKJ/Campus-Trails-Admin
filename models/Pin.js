@@ -38,14 +38,16 @@ const pinSchema = new mongoose.Schema({
     rooms: [{
       name: { type: String, required: true, trim: true },
       image: { type: String, trim: true, default: null },
-      description: { type: String, trim: true, default: null }
+      description: { type: String, trim: true, default: null },
+      qrCode: { type: String, trim: true, default: null, sparse: true }
     }]
   }],
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true,
-  collection: 'pins'
+  collection: 'pins',
+  suppressReservedKeysWarning: true
 });
 
 pinSchema.pre('save', function(next) {

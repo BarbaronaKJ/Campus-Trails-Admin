@@ -116,7 +116,8 @@ const userSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true,
-  collection: 'users'
+  collection: 'users',
+  suppressReservedKeysWarning: true
 });
 
 userSchema.pre('save', async function(next) {

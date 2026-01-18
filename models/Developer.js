@@ -30,7 +30,8 @@ const developerSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true,
-  collection: 'developers'
+  collection: 'developers',
+  suppressReservedKeysWarning: true
 });
 
 developerSchema.pre('save', function(next) {

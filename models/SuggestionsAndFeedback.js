@@ -57,7 +57,8 @@ const suggestionsAndFeedbackSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  collection: 'suggestions_and_feedbacks'
+  collection: 'suggestions_and_feedbacks',
+  suppressReservedKeysWarning: true
 });
 
 // Update the updatedAt field before saving

@@ -104,7 +104,8 @@ const facilityReportSchema = new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now }
 }, {
   timestamps: true,
-  collection: 'facility_reports'
+  collection: 'facility_reports',
+  suppressReservedKeysWarning: true
 });
 
 // Index for efficient queries
