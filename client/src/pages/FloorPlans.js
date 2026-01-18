@@ -682,30 +682,6 @@ function FloorPlans() {
                                               <div 
                                                 key={roomIndex} 
                                                 className="room-card"
-                                                draggable
-                                                onDragStart={(e) => {
-                                                  e.dataTransfer.setData('text/plain', JSON.stringify({ pinId, floorIndex, roomIndex }));
-                                                  e.currentTarget.style.opacity = '0.5';
-                                                }}
-                                                onDragEnd={(e) => {
-                                                  e.currentTarget.style.opacity = '1';
-                                                }}
-                                                onDragOver={(e) => {
-                                                  e.preventDefault();
-                                                  e.currentTarget.style.borderTop = '3px solid #007bff';
-                                                }}
-                                                onDragLeave={(e) => {
-                                                  e.currentTarget.style.borderTop = '';
-                                                }}
-                                                onDrop={(e) => {
-                                                  e.preventDefault();
-                                                  e.currentTarget.style.borderTop = '';
-                                                  const sourceData = JSON.parse(e.dataTransfer.getData('text/plain'));
-                                                  if (sourceData.pinId === pinId && sourceData.floorIndex === floorIndex && sourceData.roomIndex !== roomIndex) {
-                                                    handleReorderRooms(pinId, floorIndex, sourceData.roomIndex, roomIndex);
-                                                  }
-                                                }}
-                                                style={{ cursor: 'move' }}
                                               >
                                                 {isEditingRoom ? (
                                                   <div className="room-edit-form">

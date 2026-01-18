@@ -13,6 +13,7 @@ function PinsManagement() {
   const [success, setSuccess] = useState('')
   const [viewMode, setViewMode] = useState('all') // all, visible, waypoints
   const [searchQuery, setSearchQuery] = useState('')
+  const [searchInput, setSearchInput] = useState('') // Separate state for input field
   
   // Pagination
   const [currentPage, setCurrentPage] = useState(1)
@@ -140,7 +141,7 @@ function PinsManagement() {
     if (searchQuery) {
       const query = searchQuery.toLowerCase()
       const title = (pin.title || '').toLowerCase()
-      const category = (pin.category || '').toLowerCase()
+      const category = (typeof pin.category === 'string' ? pin.category : '').toLowerCase()
       const id = String(pin._id || pin.id).toLowerCase()
       if (!title.includes(query) && !category.includes(query) && !id.includes(query)) {
         return false
@@ -382,13 +383,40 @@ function PinsManagement() {
       <div className="map-controls card">
         <div className="control-group">
           <label className="label">Search Pins</label>
-          <input
-            type="text"
-            className="input"
-            placeholder="Search by title, category, or ID..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by title, category, or ID..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  setSearchQuery(searchInput);
+                }
+              }}
+              style={{ flex: 1 }}
+            />
+            <button
+              onClick={() => setSearchQuery(searchInput)}
+              className="button button-primary"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Search
+            </button>
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchQuery('');
+                }}
+                className="button button-secondary"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="control-group">
