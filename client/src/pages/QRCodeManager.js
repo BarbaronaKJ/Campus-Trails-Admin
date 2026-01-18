@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react'
 import { getApiBaseUrl } from '../utils/apiConfig'
-import { pinsAPI } from '../services/api'
 // Use qrcode library (not qrcode.react) - this is a Node.js library that works in browser
 // Import the default export explicitly
 import QRCodeLib from 'qrcode'

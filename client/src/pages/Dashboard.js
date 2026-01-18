@@ -1050,7 +1050,6 @@ function Dashboard() {
                         <span style={{ 
                           marginLeft: '10px', 
                           fontSize: '14px', 
-                          color: '#666',
                           backgroundColor: '#007bff',
                           color: '#fff',
                           padding: '4px 8px',
@@ -1083,7 +1082,6 @@ function Dashboard() {
                                   </strong>
                                   <span style={{ 
                                     fontSize: '12px', 
-                                    color: '#666',
                                     backgroundColor: '#28a745',
                                     color: '#fff',
                                     padding: '2px 6px',

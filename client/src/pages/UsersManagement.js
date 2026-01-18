@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
-import { getApiBaseUrl } from '../utils/apiConfig';
 
 function UsersManagement() {
   const [users, setUsers] = useState([]);

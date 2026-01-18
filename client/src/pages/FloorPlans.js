@@ -215,25 +215,6 @@ function FloorPlans() {
     updatePinFloors(pinId, updatedFloors);
   };
 
-  const handleReorderRooms = (pinId, floorIndex, sourceIndex, destinationIndex) => {
-    const pin = pins.find(p => (p._id || p.id) === pinId);
-    if (!pin || !pin.floors || !pin.floors[floorIndex]) return;
-
-    const updatedFloors = [...pin.floors];
-    const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
-    
-    // Remove from source and insert at destination
-    const [movedRoom] = updatedRooms.splice(sourceIndex, 1);
-    updatedRooms.splice(destinationIndex, 0, movedRoom);
-    
-    updatedFloors[floorIndex] = {
-      ...updatedFloors[floorIndex],
-      rooms: updatedRooms
-    };
-
-    updatePinFloors(pinId, updatedFloors);
-  };
-
   const handleReorderFloors = (pinId, sourceIndex, destinationIndex) => {
     const pin = pins.find(p => (p._id || p.id) === pinId);
     if (!pin || !pin.floors) return;
