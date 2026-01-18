@@ -1017,7 +1017,7 @@ function PinsManagement() {
                   <div style={{ 
                     border: '1px solid #ddd', 
                     borderRadius: '5px', 
-                    padding: '10px', 
+                    padding: '12px 10px', 
                     backgroundColor: '#f9f9f9',
                     maxHeight: '200px',
                     overflowY: 'auto'
