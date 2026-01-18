@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { getApiBaseUrl } from '../utils/apiConfig'
 import { pinsAPI } from '../services/api'
 // Use qrcode library (not qrcode.react) - this is a Node.js library that works in browser
@@ -271,6 +271,36 @@ function QRCodeManager() {
         (r.qrCode && r.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
       )
 
+  // Group rooms by building for Rooms tab
+  const groupedRoomsByBuilding = React.useMemo(() => {
+    if (selectedCategory !== 'rooms') return {}
+    
+    const grouped = {}
+    filteredItems.forEach(room => {
+      const buildingKey = room.buildingId || 'Unknown'
+      if (!grouped[buildingKey]) {
+        grouped[buildingKey] = {
+          buildingId: room.buildingId,
+          buildingName: room.buildingName || 'Unknown Building',
+          rooms: []
+        }
+      }
+      grouped[buildingKey].rooms.push(room)
+    })
+    
+    // Sort rooms within each building by floor level, then by name
+    Object.keys(grouped).forEach(buildingKey => {
+      grouped[buildingKey].rooms.sort((a, b) => {
+        if (a.floorLevel !== b.floorLevel) {
+          return a.floorLevel - b.floorLevel
+        }
+        return (a.displayName || '').localeCompare(b.displayName || '')
+      })
+    })
+    
+    return grouped
+  }, [filteredItems, selectedCategory])
+
   if (loading) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
@@ -343,12 +373,13 @@ function QRCodeManager() {
       </div>
 
       {/* Items Grid */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
-        gap: '20px' 
-      }}>
-        {filteredItems.map((item, index) => (
+      {selectedCategory === 'buildings' ? (
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+          gap: '20px' 
+        }}>
+          {filteredItems.map((item, index) => (
           <div 
             key={item._id || `${item.buildingId}-${item.floorLevel}-${item.name}`}
             style={{
@@ -454,12 +485,139 @@ function QRCodeManager() {
               </div>
             )}
           </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        /* Rooms categorized by building */
+        <div>
+          {Object.keys(groupedRoomsByBuilding).length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
+              <p>No rooms found{searchQuery && ` matching "${searchQuery}"`}</p>
+            </div>
+          ) : (
+            Object.keys(groupedRoomsByBuilding).map(buildingKey => {
+              const buildingGroup = groupedRoomsByBuilding[buildingKey]
+              return (
+                <div key={buildingKey} style={{ marginBottom: '40px' }}>
+                  <h2 style={{
+                    fontSize: '20px',
+                    fontWeight: 'bold',
+                    marginBottom: '20px',
+                    paddingBottom: '10px',
+                    borderBottom: '2px solid #007bff',
+                    color: '#333'
+                  }}>
+                    {buildingGroup.buildingName} ({buildingGroup.rooms.length} {buildingGroup.rooms.length === 1 ? 'room' : 'rooms'})
+                  </h2>
+                  <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', 
+                    gap: '20px' 
+                  }}>
+                    {buildingGroup.rooms.map((item) => (
+                      <div 
+                        key={item._id || `${item.buildingId}-${item.floorLevel}-${item.name}`}
+                        style={{
+                          border: '1px solid #ddd',
+                          borderRadius: '8px',
+                          padding: '20px',
+                          backgroundColor: '#fff',
+                          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                        }}
+                      >
+                        <h3 style={{ marginTop: 0, marginBottom: '10px' }}>
+                          {item.displayName}
+                        </h3>
+                        
+                        <div style={{ marginBottom: '10px', fontSize: '14px', color: '#666' }}>
+                          <div><strong>Floor:</strong> {item.floorName}</div>
+                        </div>
 
-      {filteredItems.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: '#666' }}>
-          <p>No {selectedCategory} found{searchQuery && ` matching "${searchQuery}"`}</p>
+                        {item.qrCode ? (
+                          <>
+                            <div style={{ 
+                              display: 'flex', 
+                              justifyContent: 'center', 
+                              padding: '20px',
+                              backgroundColor: '#f9f9f9',
+                              borderRadius: '4px',
+                              marginBottom: '15px'
+                            }}>
+                              <img
+                                src={qrCodeImages[`room-${item.buildingId}-${item.floorLevel}-${item.name}`] || ''}
+                                alt={`QR Code for ${item.displayName}`}
+                                style={{ width: '200px', height: '200px' }}
+                                onError={async (e) => {
+                                  try {
+                                    const dataUrl = await QRCodeLib.toDataURL(item.qrCode, { width: 200, margin: 1 })
+                                    e.target.src = dataUrl
+                                    const key = `room-${item.buildingId}-${item.floorLevel}-${item.name}`
+                                    setQrCodeImages(prev => ({ ...prev, [key]: dataUrl }))
+                                  } catch (err) {
+                                    console.error('Error generating QR code:', err)
+                                  }
+                                }}
+                              />
+                            </div>
+                            <div style={{ marginBottom: '10px', fontSize: '12px', color: '#666', wordBreak: 'break-all' }}>
+                              <strong>QR Code:</strong> {item.qrCode}
+                            </div>
+                            <div style={{ display: 'flex', gap: '10px' }}>
+                              <button
+                                onClick={() => setSelectedItem(item)}
+                                style={{
+                                  flex: 1,
+                                  padding: '10px',
+                                  backgroundColor: '#007bff',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                View
+                              </button>
+                              <button
+                                onClick={() => downloadQRCode(item)}
+                                style={{
+                                  flex: 1,
+                                  padding: '10px',
+                                  backgroundColor: '#28a745',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                Download
+                              </button>
+                            </div>
+                          </>
+                        ) : (
+                          <div style={{ textAlign: 'center', padding: '20px' }}>
+                            <p style={{ color: '#666', marginBottom: '15px' }}>No QR code generated</p>
+                            <button
+                              onClick={() => handleGenerateQRCode(item)}
+                              style={{
+                                padding: '10px 20px',
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              Generate QR Code
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          )}
         </div>
       )}
 
