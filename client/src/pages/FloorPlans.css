@@ -95,11 +95,28 @@
   padding: 20px;
   background: white;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  transition: box-shadow 0.2s;
+  transition: box-shadow 0.2s, border-top 0.2s, opacity 0.2s;
+  position: relative;
 }
 
 .floor-card:hover {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.floor-card::before {
+  content: '⋮⋮';
+  position: absolute;
+  left: 8px;
+  top: 20px;
+  color: #999;
+  font-size: 20px;
+  line-height: 1;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.floor-card:hover::before {
+  opacity: 1;
 }
 
 .floor-card-header {

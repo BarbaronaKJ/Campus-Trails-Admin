@@ -201,6 +201,22 @@ function FloorPlans() {
     updatePinFloors(pinId, updatedFloors);
   };
 
+  const handleReorderFloors = (pinId, sourceIndex, destinationIndex) => {
+    const pin = pins.find(p => (p._id || p.id) === pinId);
+    if (!pin || !pin.floors) return;
+
+    const updatedFloors = [...pin.floors];
+    
+    // Remove from source and insert at destination
+    const [movedFloor] = updatedFloors.splice(sourceIndex, 1);
+    updatedFloors.splice(destinationIndex, 0, movedFloor);
+    
+    // Update floor levels to match new order (optional - you might want to keep original levels)
+    // For now, we'll keep the original levels but reorder the array
+    
+    updatePinFloors(pinId, updatedFloors);
+  };
+
   const updatePinFloors = async (pinId, floors) => {
     try {
       setError('');
@@ -457,7 +473,35 @@ function FloorPlans() {
                             const roomCount = floor.rooms?.length || 0;
                             
                             return (
-                              <div key={floorIndex} className="floor-card">
+                              <div 
+                                key={floorIndex} 
+                                className="floor-card"
+                                draggable
+                                onDragStart={(e) => {
+                                  e.dataTransfer.setData('text/plain', JSON.stringify({ pinId, floorIndex }));
+                                  e.currentTarget.style.opacity = '0.5';
+                                }}
+                                onDragEnd={(e) => {
+                                  e.currentTarget.style.opacity = '1';
+                                  e.currentTarget.style.borderTop = '';
+                                }}
+                                onDragOver={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.style.borderTop = '3px solid #28a745';
+                                }}
+                                onDragLeave={(e) => {
+                                  e.currentTarget.style.borderTop = '';
+                                }}
+                                onDrop={(e) => {
+                                  e.preventDefault();
+                                  e.currentTarget.style.borderTop = '';
+                                  const sourceData = JSON.parse(e.dataTransfer.getData('text/plain'));
+                                  if (sourceData.pinId === pinId && sourceData.floorIndex !== floorIndex) {
+                                    handleReorderFloors(pinId, sourceData.floorIndex, floorIndex);
+                                  }
+                                }}
+                                style={{ cursor: 'move' }}
+                              >
                                 <div className="floor-card-header">
                                   <div className="floor-title-section">
                                     <div className="floor-number-badge">
