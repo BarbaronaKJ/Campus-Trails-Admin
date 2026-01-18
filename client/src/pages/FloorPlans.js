@@ -141,17 +141,32 @@ function FloorPlans() {
     }
 
     const updatedFloors = [...pin.floors];
-    const existingRooms = updatedFloors[floorIndex].rooms || [];
-    // Set order to next available number (max + 1) or 0 if no rooms
-    const maxOrder = existingRooms.length > 0 
-      ? Math.max(...existingRooms.map(r => r.order || 0))
-      : -1;
+    const existingRooms = [...(updatedFloors[floorIndex].rooms || [])];
+    
+    // Determine the desired order (use provided order or calculate next available)
+    let desiredOrder = roomData.order !== undefined ? roomData.order : undefined;
+    if (desiredOrder === undefined) {
+      const maxOrder = existingRooms.length > 0 
+        ? Math.max(...existingRooms.map(r => (r.order !== undefined && r.order !== null) ? r.order : -1))
+        : -1;
+      desiredOrder = maxOrder + 1;
+    }
+
+    // If the desired order conflicts with an existing room, adjust other rooms
+    // Find rooms with order >= desiredOrder and increment their order by 1
+    const adjustedRooms = existingRooms.map(room => {
+      if (room.order !== undefined && room.order !== null && room.order >= desiredOrder) {
+        return { ...room, order: room.order + 1 };
+      }
+      return room;
+    });
+
     updatedFloors[floorIndex] = {
       ...updatedFloors[floorIndex],
-      rooms: [...existingRooms, {
+      rooms: [...adjustedRooms, {
         name: roomData.name.trim(),
         description: roomData.description || '',
-        order: roomData.order !== undefined ? roomData.order : (maxOrder + 1)
+        order: desiredOrder
       }]
     };
 
@@ -176,6 +191,7 @@ function FloorPlans() {
     const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
     // Get existing room data to preserve fields not being edited
     const existingRoom = updatedRooms[roomIndex] || {};
+    const oldOrder = existingRoom.order;
     // Remove image field if it exists, keep only name, description, and order
     const { image, ...roomUpdate } = editingRoomData;
     // Merge: existing room data + edited data (order, name, description)
@@ -188,11 +204,51 @@ function FloorPlans() {
     };
     // Ensure image is removed from the room
     delete finalRoomData.image;
-    updatedRooms[roomIndex] = finalRoomData;
-    updatedFloors[floorIndex] = {
-      ...updatedFloors[floorIndex],
-      rooms: updatedRooms
-    };
+    
+    // If order changed and conflicts with another room, adjust other rooms' orders
+    const newOrder = finalRoomData.order;
+    if (newOrder !== undefined && newOrder !== null && newOrder !== oldOrder) {
+      // Temporarily remove current room from array for conflict checking
+      const roomsWithoutCurrent = updatedRooms.filter((_, idx) => idx !== roomIndex);
+      
+      // Check if newOrder conflicts with any other room
+      const conflictingRoomIndex = roomsWithoutCurrent.findIndex(r => r.order !== undefined && r.order !== null && r.order === newOrder);
+      
+      if (conflictingRoomIndex !== -1 || (oldOrder !== undefined && oldOrder !== null)) {
+        // There's a conflict or the order changed - need to rearrange
+        // Strategy: Shift all rooms with order >= newOrder (except current room) by +1
+        const adjustedRooms = updatedRooms.map((room, idx) => {
+          if (idx === roomIndex) {
+            // This is the room being updated - set its order to newOrder
+            return finalRoomData;
+          }
+          // For other rooms: if they have order >= newOrder, increment by 1
+          if (room.order !== undefined && room.order !== null && room.order >= newOrder) {
+            return { ...room, order: room.order + 1 };
+          }
+          return room;
+        });
+        
+        updatedFloors[floorIndex] = {
+          ...updatedFloors[floorIndex],
+          rooms: adjustedRooms
+        };
+      } else {
+        // No conflict, just update the room
+        updatedRooms[roomIndex] = finalRoomData;
+        updatedFloors[floorIndex] = {
+          ...updatedFloors[floorIndex],
+          rooms: updatedRooms
+        };
+      }
+    } else {
+      // Order didn't change or is undefined/null, just update normally
+      updatedRooms[roomIndex] = finalRoomData;
+      updatedFloors[floorIndex] = {
+        ...updatedFloors[floorIndex],
+        rooms: updatedRooms
+      };
+    }
 
     setEditingRoomData(null);
     updatePinFloors(pinId, updatedFloors);
