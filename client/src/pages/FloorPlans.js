@@ -15,8 +15,10 @@ function FloorPlans() {
   const [searchInput, setSearchInput] = useState(''); // Separate state for input field
   const [addingFloor, setAddingFloor] = useState(null); // { pinId }
   const [editingFloor, setEditingFloor] = useState(null); // { pinId, floorIndex }
+  const [editingFloorData, setEditingFloorData] = useState(null); // Local state for floor being edited
   const [addingRoom, setAddingRoom] = useState(null); // { pinId, floorIndex }
   const [editingRoom, setEditingRoom] = useState(null); // { pinId, floorIndex, roomIndex }
+  const [editingRoomData, setEditingRoomData] = useState(null); // Local state for room being edited
 
   const fetchData = useCallback(async () => {
     try {
@@ -98,12 +100,19 @@ function FloorPlans() {
   };
 
   const handleUpdateFloor = (pinId, floorIndex, updatedFloor) => {
+    // Update local state only - don't save to backend yet
+    setEditingFloorData({ ...editingFloorData, ...updatedFloor });
+  };
+
+  const handleSaveFloor = (pinId, floorIndex) => {
+    if (!editingFloorData) return;
     const pin = pins.find(p => (p._id || p.id) === pinId);
     if (!pin) return;
 
     const updatedFloors = [...(pin.floors || [])];
-    updatedFloors[floorIndex] = { ...updatedFloors[floorIndex], ...updatedFloor };
+    updatedFloors[floorIndex] = { ...updatedFloors[floorIndex], ...editingFloorData };
     const sorted = updatedFloors.sort((a, b) => a.level - b.level);
+    setEditingFloorData(null);
     updatePinFloors(pinId, sorted);
   };
 
@@ -151,13 +160,20 @@ function FloorPlans() {
   };
 
   const handleUpdateRoom = (pinId, floorIndex, roomIndex, updatedRoom) => {
+    // Update local state only - don't save to backend yet
+    const { image, ...roomUpdate } = updatedRoom;
+    setEditingRoomData({ ...editingRoomData, ...roomUpdate });
+  };
+
+  const handleSaveRoom = (pinId, floorIndex, roomIndex) => {
+    if (!editingRoomData) return;
     const pin = pins.find(p => (p._id || p.id) === pinId);
     if (!pin || !pin.floors || !pin.floors[floorIndex]) return;
 
     const updatedFloors = [...pin.floors];
     const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
-    // Remove image field if it exists in updatedRoom, keep only name and description
-    const { image, ...roomUpdate } = updatedRoom;
+    // Remove image field if it exists, keep only name, description, and order
+    const { image, ...roomUpdate } = editingRoomData;
     updatedRooms[roomIndex] = { ...updatedRooms[roomIndex], ...roomUpdate };
     // Ensure image is removed from the room
     delete updatedRooms[roomIndex].image;
@@ -166,6 +182,7 @@ function FloorPlans() {
       rooms: updatedRooms
     };
 
+    setEditingRoomData(null);
     updatePinFloors(pinId, updatedFloors);
   };
 
@@ -527,8 +544,10 @@ function FloorPlans() {
                                       onClick={() => {
                                         if (isEditing) {
                                           setEditingFloor(null);
+                                          setEditingFloorData(null);
                                         } else {
                                           setEditingFloor({ pinId, floorIndex });
+                                          setEditingFloorData({ ...floor }); // Initialize with current floor data
                                           setAddingRoom(null);
                                           setEditingRoom(null);
                                         }
@@ -553,7 +572,7 @@ function FloorPlans() {
                                         <label>Floor Level</label>
                                         <input
                                           type="number"
-                                          value={floor.level}
+                                          value={editingFloorData?.level !== undefined ? editingFloorData.level : floor.level}
                                           onChange={(e) => handleUpdateFloor(pinId, floorIndex, { level: parseInt(e.target.value) || 0 })}
                                           className="form-group input"
                                         />
@@ -562,18 +581,18 @@ function FloorPlans() {
                                         <label>Floor Plan Image URL</label>
                                         <input
                                           type="text"
-                                          value={floor.floorPlan || ''}
+                                          value={editingFloorData?.floorPlan !== undefined ? editingFloorData.floorPlan : (floor.floorPlan || '')}
                                           onChange={(e) => handleUpdateFloor(pinId, floorIndex, { floorPlan: e.target.value })}
                                           placeholder="https://..."
                                           className="form-group input"
                                         />
                                       </div>
                                     </div>
-                                    {floor.floorPlan && (
+                                    {(editingFloorData?.floorPlan || floor.floorPlan) && (
                                       <div style={{ marginTop: '15px' }}>
                                         <img
-                                          src={floor.floorPlan}
-                                          alt={`Floor ${floor.level} plan`}
+                                          src={editingFloorData?.floorPlan || floor.floorPlan}
+                                          alt={`Floor ${editingFloorData?.level !== undefined ? editingFloorData.level : floor.level} plan`}
                                           className="floor-plan-preview"
                                           onError={(e) => { e.target.style.display = 'none'; }}
                                         />
@@ -581,7 +600,10 @@ function FloorPlans() {
                                     )}
                                     <div style={{ marginTop: '15px' }}>
                                       <button
-                                        onClick={() => setEditingFloor(null)}
+                                        onClick={() => {
+                                          handleSaveFloor(pinId, floorIndex);
+                                          setEditingFloor(null);
+                                        }}
                                         className="btn btn-primary"
                                       >
                                         ✓ Done
@@ -725,7 +747,7 @@ function FloorPlans() {
                                                         <label>Order *</label>
                                                         <input
                                                           type="number"
-                                                          value={room.order !== undefined ? room.order : ''}
+                                                          value={editingRoomData?.order !== undefined ? editingRoomData.order : (room.order !== undefined ? room.order : '')}
                                                           onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { order: parseInt(e.target.value) || 0 })}
                                                           className="form-group input"
                                                           min="0"
@@ -739,7 +761,7 @@ function FloorPlans() {
                                                         <label>Room Name *</label>
                                                         <input
                                                           type="text"
-                                                          value={room.name}
+                                                          value={editingRoomData?.name !== undefined ? editingRoomData.name : room.name}
                                                           onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { name: e.target.value })}
                                                           className="form-group input"
                                                           required
@@ -749,7 +771,7 @@ function FloorPlans() {
                                                     <div className="form-group">
                                                       <label>Description</label>
                                                       <textarea
-                                                        value={room.description || ''}
+                                                        value={editingRoomData?.description !== undefined ? editingRoomData.description : (room.description || '')}
                                                         onChange={(e) => handleUpdateRoom(pinId, floorIndex, originalIndex, { description: e.target.value })}
                                                         className="form-group textarea"
                                                         rows="4"
@@ -758,7 +780,10 @@ function FloorPlans() {
                                                     </div>
                                                     <div style={{ display: 'flex', gap: '10px' }}>
                                                       <button
-                                                        onClick={() => setEditingRoom(null)}
+                                                        onClick={() => {
+                                                          handleSaveRoom(pinId, floorIndex, originalIndex);
+                                                          setEditingRoom(null);
+                                                        }}
                                                         className="btn btn-primary"
                                                       >
                                                         ✓ Save Changes
@@ -775,7 +800,10 @@ function FloorPlans() {
                                                         Delete
                                                       </button>
                                                       <button
-                                                        onClick={() => setEditingRoom(null)}
+                                                        onClick={() => {
+                                                          setEditingRoom(null);
+                                                          setEditingRoomData(null);
+                                                        }}
                                                         className="btn btn-secondary"
                                                       >
                                                         Cancel
@@ -815,7 +843,10 @@ function FloorPlans() {
                                                     </div>
                                                     <div className="room-actions">
                                                       <button
-                                                        onClick={() => setEditingRoom({ pinId, floorIndex, roomIndex: originalIndex })}
+                                                        onClick={() => {
+                                                          setEditingRoom({ pinId, floorIndex, roomIndex: originalIndex });
+                                                          setEditingRoomData({ ...room }); // Initialize with current room data
+                                                        }}
                                                         className="btn btn-primary"
                                                         style={{ fontSize: '12px', padding: '6px 12px' }}
                                                       >
