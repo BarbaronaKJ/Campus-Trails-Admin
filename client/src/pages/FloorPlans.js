@@ -492,31 +492,6 @@ function FloorPlans() {
                               <div 
                                 key={floorIndex} 
                                 className="floor-card"
-                                draggable
-                                onDragStart={(e) => {
-                                  e.dataTransfer.setData('text/plain', JSON.stringify({ pinId, floorIndex }));
-                                  e.currentTarget.style.opacity = '0.5';
-                                }}
-                                onDragEnd={(e) => {
-                                  e.currentTarget.style.opacity = '1';
-                                  e.currentTarget.style.borderTop = '';
-                                }}
-                                onDragOver={(e) => {
-                                  e.preventDefault();
-                                  e.currentTarget.style.borderTop = '3px solid #28a745';
-                                }}
-                                onDragLeave={(e) => {
-                                  e.currentTarget.style.borderTop = '';
-                                }}
-                                onDrop={(e) => {
-                                  e.preventDefault();
-                                  e.currentTarget.style.borderTop = '';
-                                  const sourceData = JSON.parse(e.dataTransfer.getData('text/plain'));
-                                  if (sourceData.pinId === pinId && sourceData.floorIndex !== floorIndex) {
-                                    handleReorderFloors(pinId, sourceData.floorIndex, floorIndex);
-                                  }
-                                }}
-                                style={{ cursor: 'move' }}
                               >
                                 <div className="floor-card-header">
                                   <div className="floor-title-section">
@@ -725,9 +700,11 @@ function FloorPlans() {
                                             
                                             // If order is the same (or both are undefined), sort by name
                                             return (a.name || '').localeCompare(b.name || '');
-                                          }).map((room, roomIndex) => {
+                                          }).map((room, sortedIndex) => {
                                             // Find the original index in the unsorted array
                                             const originalIndex = floor.rooms.findIndex(r => r === room);
+                                            // Display order based on position in sorted array (1-based)
+                                            const displayOrder = sortedIndex + 1;
                                             const isEditingRoom = editingRoom?.pinId === pinId && 
                                                                  editingRoom?.floorIndex === floorIndex && 
                                                                  editingRoom?.roomIndex === originalIndex;
@@ -817,20 +794,18 @@ function FloorPlans() {
                                                     <div className="room-display-content">
                                                       <div className="room-info" style={{ width: '100%' }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                          {room.order !== undefined && (
-                                                            <span style={{
-                                                              backgroundColor: '#007bff',
-                                                              color: 'white',
-                                                              borderRadius: '12px',
-                                                              padding: '2px 8px',
-                                                              fontSize: '11px',
-                                                              fontWeight: 'bold',
-                                                              minWidth: '24px',
-                                                              textAlign: 'center'
-                                                            }}>
-                                                              {room.order}
-                                                            </span>
-                                                          )}
+                                                          <span style={{
+                                                            backgroundColor: '#007bff',
+                                                            color: 'white',
+                                                            borderRadius: '12px',
+                                                            padding: '2px 8px',
+                                                            fontSize: '11px',
+                                                            fontWeight: 'bold',
+                                                            minWidth: '24px',
+                                                            textAlign: 'center'
+                                                          }}>
+                                                            {displayOrder}
+                                                          </span>
                                                           <h6 style={{ margin: 0, flex: 1 }}>{room.name}</h6>
                                                         </div>
                                                         {room.description && (
