@@ -1022,17 +1022,22 @@ function PinsManagement() {
                     maxHeight: '200px',
                     overflowY: 'auto'
                   }}>
-                    {AVAILABLE_CATEGORIES.map(cat => {
+                    {AVAILABLE_CATEGORIES.map((cat, index) => {
                       const isSelected = Array.isArray(newPinData.category) 
                         ? newPinData.category.includes(cat)
                         : (newPinData.category === cat)
                       return (
-                        <label key={cat} style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          marginBottom: '8px',
-                          cursor: 'pointer'
-                        }}>
+                        <label 
+                          key={cat} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            marginBottom: index === AVAILABLE_CATEGORIES.length - 1 ? '0' : '8px',
+                            cursor: 'pointer',
+                            lineHeight: '1.5',
+                            minHeight: '24px'
+                          }}
+                        >
                           <input
                             type="checkbox"
                             checked={isSelected}
@@ -1046,9 +1051,21 @@ function PinsManagement() {
                                 setNewPinData({...newPinData, category: currentCategories.filter(c => c !== cat)})
                               }
                             }}
-                            style={{ marginRight: '8px' }}
+                            style={{ 
+                              marginRight: '10px',
+                              marginTop: '0',
+                              marginBottom: '0',
+                              cursor: 'pointer',
+                              flexShrink: 0,
+                              width: '18px',
+                              height: '18px'
+                            }}
                           />
-                          <span>{cat}</span>
+                          <span style={{ 
+                            display: 'inline-block',
+                            verticalAlign: 'middle',
+                            lineHeight: '1.5'
+                          }}>{cat}</span>
                         </label>
                       )
                     })}
