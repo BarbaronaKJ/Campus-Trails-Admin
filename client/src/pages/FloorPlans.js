@@ -711,7 +711,7 @@ function FloorPlans() {
                                             
                                             return (
                                               <div 
-                                                key={`${roomIndex}-${originalIndex}`} 
+                                                key={`${sortedIndex}-${originalIndex}`} 
                                                 className="room-card"
                                               >
                                                 {isEditingRoom ? (
