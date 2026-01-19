@@ -9,6 +9,7 @@ import NotificationsManagement from './pages/NotificationsManagement';
 import FeedbacksManagement from './pages/FeedbacksManagement';
 import DevelopersManagement from './pages/DevelopersManagement';
 import QRCodeManager from './pages/QRCodeManager';
+import ElevatorStairsManagement from './pages/ElevatorStairsManagement';
 import MediaLibrary from './pages/MediaLibrary';
 import SystemSettings from './pages/SystemSettings';
 import ProfileSettings from './pages/ProfileSettings';
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route index element={<Dashboard />} />
         <Route path="pins" element={<PinsManagement />} />
         <Route path="qrcodes" element={<QRCodeManager />} />
+        <Route path="elevator-stairs" element={<ElevatorStairsManagement />} />
         <Route path="campuses" element={<CampusesManagement />} />
         <Route path="media" element={<MediaLibrary />} />
         <Route path="users" element={<UsersManagement />} />

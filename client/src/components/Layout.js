@@ -105,6 +105,7 @@ function Layout() {
           <MenuSection title="Map Management" sectionKey="mapManagement">
             <MenuItem to="/pins" label="Facility Pins" />
             <MenuItem to="/qrcodes" label="QR Code Manager" />
+            <MenuItem to="/elevator-stairs" label="Elevator/Stairs Config" />
             <MenuItem to="/campuses" label="Campuses" />
           </MenuSection>
 
