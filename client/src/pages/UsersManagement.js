@@ -448,12 +448,13 @@ function UsersManagement() {
                       </td>
                       <td>{superAdmin.createdAt ? new Date(superAdmin.createdAt).toLocaleDateString() : 'N/A'}</td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
