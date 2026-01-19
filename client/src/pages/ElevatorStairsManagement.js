@@ -291,14 +291,11 @@ function ElevatorStairsManagement() {
                       </h4>
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                        {elevatorStairsRooms.map((room, roomIndex) => {
-                          const { isElevator, isStairs } = isElevatorOrStairs(room);
-                          const originalRoomIndex = floor.rooms.findIndex(r => 
-                            (r.name || r.id) === (room.name || room.id)
-                          );
+                        {elevatorStairsRooms.map((item, roomIndex) => {
+                          const { room, originalIndex, isElevator, isStairs } = item;
                           
                           return (
-                            <div key={roomIndex} style={{
+                            <div key={`${floorIndex}-${originalIndex}-${roomIndex}`} style={{
                               padding: '12px',
                               backgroundColor: isElevator ? '#e3f2fd' : '#fff3e0',
                               borderRadius: '6px',
@@ -316,7 +313,7 @@ function ElevatorStairsManagement() {
                                   )}
                                 </div>
                                 <button
-                                  onClick={() => handleEditBesideRooms(pin._id || pin.id, floorIndex, originalRoomIndex, isElevator ? 'elevator' : 'stairs')}
+                                  onClick={() => handleEditBesideRooms(pin._id || pin.id, floorIndex, originalIndex, isElevator ? 'elevator' : 'stairs')}
                                   className="button button-primary button-small"
                                 >
                                   Configure Beside Rooms
