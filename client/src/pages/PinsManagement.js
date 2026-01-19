@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { getApiBaseUrl } from '../utils/apiConfig'
 import { pinsAPI, campusesAPI } from '../services/api'
+import { matchesFlexible, matchesAnyFlexible } from '../utils/fuzzySearch'
 import './MapDataManager.css'
 
 function PinsManagement() {
@@ -159,13 +160,19 @@ function PinsManagement() {
       return false
     }
     if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      const title = (pin.title || '').toLowerCase()
+      const query = searchQuery.trim()
+      const title = pin.title || ''
+      const description = pin.description || ''
       const categories = Array.isArray(pin.category) 
-        ? pin.category.join(' ').toLowerCase()
-        : (typeof pin.category === 'string' ? pin.category : '').toLowerCase()
-      const id = String(pin._id || pin.id).toLowerCase()
-      if (!title.includes(query) && !categories.includes(query) && !id.includes(query)) {
+        ? pin.category
+        : (typeof pin.category === 'string' ? [pin.category] : [])
+      const id = String(pin._id || pin.id)
+      
+      // Use fuzzy search matching
+      if (!matchesFlexible(query, title) && 
+          !matchesFlexible(query, description) && 
+          !matchesAnyFlexible(query, categories) && 
+          !matchesFlexible(query, id)) {
         return false
       }
     }
@@ -534,6 +541,7 @@ function PinsManagement() {
                 <tr>
                   <th>ID</th>
                   <th>Title</th>
+                  <th>Description</th>
                   <th>Type</th>
                   <th>Category</th>
                   <th>Coordinates</th>
@@ -547,6 +555,13 @@ function PinsManagement() {
                     <td className="pin-id">{String(pin._id || pin.id).substring(0, 8)}</td>
                     <td>
                       <strong>{pin.title || 'Waypoint'}</strong>
+                    </td>
+                    <td>
+                      {pin.description ? (
+                        <span title={pin.description}>{pin.description.length > 50 ? pin.description.substring(0, 50) + '...' : pin.description}</span>
+                      ) : (
+                        <span style={{ color: '#999', fontStyle: 'italic' }}>No description</span>
+                      )}
                     </td>
                     <td>
                       <span className={`type-badge ${pin.isVisible === false ? 'waypoint' : 'visible'}`}>

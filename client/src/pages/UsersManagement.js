@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { usersAPI } from '../services/api';
+import { matchesFlexible } from '../utils/fuzzySearch';
 
 function UsersManagement() {
   const [users, setUsers] = useState([]);
@@ -10,6 +11,8 @@ function UsersManagement() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [currentUser, setCurrentUser] = useState(null); // Current logged-in admin
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // Separate state for input field
 
   useEffect(() => {
     fetchCurrentUser();
@@ -180,6 +183,47 @@ function UsersManagement() {
       {error && <div className="alert alert-error">{error}</div>}
       {success && <div className="alert alert-success">{success}</div>}
 
+      {/* Search */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div className="control-group">
+          <label className="label">Search Users</label>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              className="input"
+              placeholder="Search by email, username..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  setSearchQuery(searchInput);
+                }
+              }}
+              style={{ flex: 1 }}
+            />
+            <button
+              onClick={() => setSearchQuery(searchInput)}
+              className="button button-primary"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Search
+            </button>
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchQuery('');
+                }}
+                className="button button-secondary"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div className="card">
         <div style={{ display: 'flex', gap: '10px', borderBottom: '2px solid #28a745', marginBottom: '20px' }}>
@@ -233,24 +277,32 @@ function UsersManagement() {
         </div>
 
         {/* Users Tab */}
-        {activeTab === 'users' && (
-          <div className="card">
-            <h2>Students/Users</h2>
-            {users.length === 0 ? (
-              <p>No users found.</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>Created At</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map(user => (
+        {activeTab === 'users' && (() => {
+          const filteredUsers = searchQuery.trim() 
+            ? users.filter(u => 
+                matchesFlexible(searchQuery, u.email || '') ||
+                matchesFlexible(searchQuery, u.username || '')
+              )
+            : users;
+          
+          return (
+            <div className="card">
+              <h2>Students/Users {filteredUsers.length !== users.length && `(${filteredUsers.length} of ${users.length})`}</h2>
+              {filteredUsers.length === 0 ? (
+                <p>No users found{searchQuery && ` matching "${searchQuery}"`}.</p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Created At</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map(user => (
                     <tr key={user._id}>
                       <td>{user.email}</td>
                       <td>{user.username || 'N/A'}</td>
@@ -355,23 +407,31 @@ function UsersManagement() {
         )}
 
         {/* Super Admins Tab */}
-        {activeTab === 'superAdmins' && currentUser && currentUser.role === 'super_admin' && (
-          <div className="card">
-            <h2>Super Administrators</h2>
-            {superAdmins.length === 0 ? (
-              <p>No super admins found.</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>Created At</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {superAdmins.map(superAdmin => (
+        {activeTab === 'superAdmins' && currentUser && currentUser.role === 'super_admin' && (() => {
+          const filteredSuperAdmins = searchQuery.trim() 
+            ? superAdmins.filter(sa => 
+                matchesFlexible(searchQuery, sa.email || '') ||
+                matchesFlexible(searchQuery, sa.username || '')
+              )
+            : superAdmins;
+          
+          return (
+            <div className="card">
+              <h2>Super Administrators {filteredSuperAdmins.length !== superAdmins.length && `(${filteredSuperAdmins.length} of ${superAdmins.length})`}</h2>
+              {filteredSuperAdmins.length === 0 ? (
+                <p>No super admins found{searchQuery && ` matching "${searchQuery}"`}.</p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Created At</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSuperAdmins.map(superAdmin => (
                     <tr key={superAdmin._id}>
                       <td>{superAdmin.email}</td>
                       <td>{superAdmin.username || 'N/A'}</td>

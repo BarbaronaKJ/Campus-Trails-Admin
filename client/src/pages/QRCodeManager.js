@@ -3,6 +3,7 @@ import { getApiBaseUrl } from '../utils/apiConfig'
 // Use qrcode library (not qrcode.react) - this is a Node.js library that works in browser
 // Import the default export explicitly
 import QRCodeLib from 'qrcode'
+import { matchesFlexible } from '../utils/fuzzySearch'
 import './MapDataManager.css'
 
 function QRCodeManager() {
@@ -260,15 +261,17 @@ function QRCodeManager() {
   }
 
   const filteredItems = selectedCategory === 'buildings' 
-    ? buildings.filter(b => 
-        b.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (b.qrCode && b.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
-    : rooms.filter(r => 
-        r.displayName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        r.buildingName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (r.qrCode && r.qrCode.toLowerCase().includes(searchQuery.toLowerCase()))
-      )
+    ? buildings.filter(b => {
+        if (!searchQuery.trim()) return true;
+        return matchesFlexible(searchQuery, b.displayName || '') ||
+               (b.qrCode && matchesFlexible(searchQuery, b.qrCode));
+      })
+    : rooms.filter(r => {
+        if (!searchQuery.trim()) return true;
+        return matchesFlexible(searchQuery, r.displayName || '') ||
+               matchesFlexible(searchQuery, r.buildingName || '') ||
+               (r.qrCode && matchesFlexible(searchQuery, r.qrCode));
+      })
 
   // Group rooms by building for Rooms tab
   const groupedRoomsByBuilding = React.useMemo(() => {

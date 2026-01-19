@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { usersAPI, suggestionsAndFeedbacksAPI } from '../services/api';
+import { matchesFlexible } from '../utils/fuzzySearch';
 
 function FeedbacksManagement() {
   const [activeTab, setActiveTab] = useState('reports'); // 'reports' or 'suggestions'
   const [feedbacks, setFeedbacks] = useState([]);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchInput, setSearchInput] = useState(''); // Separate state for input field
 
   useEffect(() => {
     fetchData();
@@ -162,6 +165,47 @@ function FeedbacksManagement() {
     <div className="container">
       <h1>Feedbacks & Reports</h1>
       
+      {/* Search */}
+      <div className="card" style={{ marginBottom: '20px' }}>
+        <div className="control-group">
+          <label className="label">Search</label>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              className="input"
+              placeholder={activeTab === 'reports' ? 'Search by user, building, room, comment...' : 'Search by user, message...'}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  setSearchQuery(searchInput);
+                }
+              }}
+              style={{ flex: 1 }}
+            />
+            <button
+              onClick={() => setSearchQuery(searchInput)}
+              className="button button-primary"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              Search
+            </button>
+            {searchQuery && (
+              <button
+                onClick={() => {
+                  setSearchInput('');
+                  setSearchQuery('');
+                }}
+                className="button button-secondary"
+                style={{ whiteSpace: 'nowrap' }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Tabs */}
       <div style={{ 
         display: 'flex', 
@@ -222,31 +266,42 @@ function FeedbacksManagement() {
       </div>
 
       {/* Reports Tab */}
-      {activeTab === 'reports' && (
-        <div className="card">
-          <h2 style={{ marginBottom: '20px' }}>Facility Reports</h2>
-          {feedbacks.length === 0 ? (
-            <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-              No facility reports found.
-            </p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="table" style={{ fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ fontSize: '12px' }}>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>User</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Building/Facility</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Room/Area</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Type</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Comment</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Rating</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Status</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Date</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {feedbacks.map((f, index) => (
+      {activeTab === 'reports' && (() => {
+        const filteredFeedbacks = searchQuery.trim()
+          ? feedbacks.filter(f => 
+              matchesFlexible(searchQuery, f.userId?.email || '') ||
+              matchesFlexible(searchQuery, f.userId?.username || '') ||
+              matchesFlexible(searchQuery, f.pinTitle || '') ||
+              matchesFlexible(searchQuery, f.roomId || '') ||
+              matchesFlexible(searchQuery, f.comment || '')
+            )
+          : feedbacks;
+        
+        return (
+          <div className="card">
+            <h2 style={{ marginBottom: '20px' }}>Facility Reports {filteredFeedbacks.length !== feedbacks.length && `(${filteredFeedbacks.length} of ${feedbacks.length})`}</h2>
+            {filteredFeedbacks.length === 0 ? (
+              <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                No facility reports found{searchQuery && ` matching "${searchQuery}"`}.
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ fontSize: '12px' }}>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>User</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Building/Facility</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Room/Area</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Type</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Comment</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Rating</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Status</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Date</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredFeedbacks.map((f, index) => (
                     <tr key={f._id || f.id || `feedback-${index}`} style={{ fontSize: '12px' }}>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.userId?.email || f.userId?.username || 'N/A'}</td>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{f.pinTitle || f.pinId?.description || f.pinId?.title || 'N/A'}</td>
@@ -290,36 +345,47 @@ function FeedbacksManagement() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Suggestions Tab */}
-      {activeTab === 'suggestions' && (
-        <div className="card">
-          <h2 style={{ marginBottom: '20px' }}>User App Feedback</h2>
-          {suggestions.length === 0 ? (
-            <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
-              No user app feedback found.
-            </p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="table" style={{ fontSize: '12px' }}>
-                <thead>
-                  <tr style={{ fontSize: '12px' }}>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>User</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Type</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Message</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Status</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Date</th>
-                    <th style={{ fontSize: '12px', padding: '8px' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {suggestions.map(s => (
+      {activeTab === 'suggestions' && (() => {
+        const filteredSuggestions = searchQuery.trim()
+          ? suggestions.filter(s => 
+              matchesFlexible(searchQuery, s.userId?.email || '') ||
+              matchesFlexible(searchQuery, s.userId?.username || '') ||
+              matchesFlexible(searchQuery, s.message || '') ||
+              matchesFlexible(searchQuery, s.feedback || '')
+            )
+          : suggestions;
+        
+        return (
+          <div className="card">
+            <h2 style={{ marginBottom: '20px' }}>User App Feedback {filteredSuggestions.length !== suggestions.length && `(${filteredSuggestions.length} of ${suggestions.length})`}</h2>
+            {filteredSuggestions.length === 0 ? (
+              <p style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                No user app feedback found{searchQuery && ` matching "${searchQuery}"`}.
+              </p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="table" style={{ fontSize: '12px' }}>
+                  <thead>
+                    <tr style={{ fontSize: '12px' }}>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>User</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Type</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Message</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Status</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Date</th>
+                      <th style={{ fontSize: '12px', padding: '8px' }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredSuggestions.map(s => (
                     <tr key={s._id} style={{ fontSize: '12px' }}>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{s.userId?.email || s.userId?.username || 'N/A'}</td>
                       <td style={{ fontSize: '12px', padding: '8px' }}>{s.type || 'suggestion'}</td>
@@ -356,12 +422,13 @@ function FeedbacksManagement() {
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }
