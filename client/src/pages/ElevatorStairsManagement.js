@@ -396,12 +396,17 @@ function ElevatorStairsManagement() {
                 overflowY: 'auto'
               }}>
                 {selectedFloor.rooms?.filter(r => {
-                  const roomKey = r.name || r.id;
-                  const currentRoomKey = editingElevatorStairs.room.name || editingElevatorStairs.room.id;
-                  return roomKey !== currentRoomKey;
+                  const roomKey = String(r.name || r.id || '').trim();
+                  const currentRoomKey = String(editingElevatorStairs.room.name || editingElevatorStairs.room.id || '').trim();
+                  return roomKey !== currentRoomKey && roomKey !== '';
                 }).map((otherRoom, idx) => {
+                  const otherRoomKey = String(otherRoom.name || otherRoom.id || '').trim();
                   const isSelected = Array.isArray(editingElevatorStairs.currentBesideRooms) 
-                    ? editingElevatorStairs.currentBesideRooms.includes(otherRoom.name || otherRoom.id)
+                    ? editingElevatorStairs.currentBesideRooms.some(besideId => {
+                        const besideKey = String(besideId || '').trim();
+                        return besideKey === otherRoomKey || 
+                               besideKey.toLowerCase() === otherRoomKey.toLowerCase();
+                      })
                     : false;
                   return (
                     <label key={idx} style={{ 
@@ -418,9 +423,17 @@ function ElevatorStairsManagement() {
                             ? [...editingElevatorStairs.currentBesideRooms]
                             : [];
                           if (e.target.checked) {
-                            editingElevatorStairs.currentBesideRooms = [...currentBesideRooms, otherRoom.name || otherRoom.id];
+                            // Add room name/id if not already present
+                            const roomKey = String(otherRoom.name || otherRoom.id || '').trim();
+                            if (roomKey && !currentBesideRooms.some(b => String(b || '').trim() === roomKey)) {
+                              editingElevatorStairs.currentBesideRooms = [...currentBesideRooms, otherRoom.name || otherRoom.id];
+                            }
                           } else {
-                            editingElevatorStairs.currentBesideRooms = currentBesideRooms.filter(r => r !== (otherRoom.name || otherRoom.id));
+                            // Remove room name/id
+                            const roomKey = String(otherRoom.name || otherRoom.id || '').trim();
+                            editingElevatorStairs.currentBesideRooms = currentBesideRooms.filter(r => 
+                              String(r || '').trim() !== roomKey
+                            );
                           }
                           setEditingElevatorStairs({ ...editingElevatorStairs });
                         }}
