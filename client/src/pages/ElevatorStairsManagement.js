@@ -146,12 +146,17 @@ function ElevatorStairsManagement() {
     const pin = pins.find(p => (p._id || p.id) === pinId);
     if (!pin || !pin.floors || !pin.floors[floorIndex]) return;
 
-    const updatedFloors = [...pin.floors];
+    // Deep clone to ensure we're working with a fresh copy
+    const updatedFloors = JSON.parse(JSON.stringify(pin.floors));
     const updatedRooms = [...updatedFloors[floorIndex].rooms];
+    
+    // Ensure we preserve all existing room properties when updating besideRooms
+    const existingRoom = updatedRooms[roomIndex];
     updatedRooms[roomIndex] = {
-      ...updatedRooms[roomIndex],
-      besideRooms: besideRooms
+      ...existingRoom,
+      besideRooms: Array.isArray(besideRooms) ? [...besideRooms] : [] // Ensure it's a new array
     };
+    
     updatedFloors[floorIndex] = {
       ...updatedFloors[floorIndex],
       rooms: updatedRooms
