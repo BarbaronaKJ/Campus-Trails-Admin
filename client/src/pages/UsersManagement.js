@@ -335,32 +335,41 @@ function UsersManagement() {
               </table>
             )}
           </div>
-        )}
+          );
+        })()}
 
         {/* Admins Tab */}
-        {activeTab === 'admins' && (
-          <div className="card">
-            <h2>Administrators</h2>
-            {admins.length === 0 ? (
-              <p>No admins found.</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Email</th>
-                    <th>Username</th>
-                    <th>Role</th>
-                    <th>Created At</th>
-                    {currentUser && currentUser.role === 'super_admin' && (
-                      <th>
-                        <span style={{ marginRight: '8px' }}>Edit Role</span>
-                        <span>Actions</span>
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody>
-                  {admins.map(admin => (
+        {activeTab === 'admins' && (() => {
+          const filteredAdmins = searchQuery.trim() 
+            ? admins.filter(a => 
+                matchesFlexible(searchQuery, a.email || '') ||
+                matchesFlexible(searchQuery, a.username || '')
+              )
+            : admins;
+          
+          return (
+            <div className="card">
+              <h2>Administrators {filteredAdmins.length !== admins.length && `(${filteredAdmins.length} of ${admins.length})`}</h2>
+              {filteredAdmins.length === 0 ? (
+                <p>No admins found{searchQuery && ` matching "${searchQuery}"`}.</p>
+              ) : (
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Username</th>
+                      <th>Role</th>
+                      <th>Created At</th>
+                      {currentUser && currentUser.role === 'super_admin' && (
+                        <th>
+                          <span style={{ marginRight: '8px' }}>Edit Role</span>
+                          <span>Actions</span>
+                        </th>
+                      )}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredAdmins.map(admin => (
                     <tr key={admin._id}>
                       <td>{admin.email}</td>
                       <td>{admin.username || 'N/A'}</td>
@@ -399,12 +408,13 @@ function UsersManagement() {
                         </td>
                       )}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </div>
-        )}
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Super Admins Tab */}
         {activeTab === 'superAdmins' && currentUser && currentUser.role === 'super_admin' && (() => {
