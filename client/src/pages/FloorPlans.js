@@ -826,6 +826,75 @@ function FloorPlans() {
                                                         placeholder="Room description, features, capacity..."
                                                       />
                                                     </div>
+                                                    {/* Beside Rooms Selection (for Elevator/Stairs) */}
+                                                    <div className="form-group">
+                                                      <label>Rooms Beside This (for Elevator/Stairs)</label>
+                                                      <div style={{ 
+                                                        border: '1px solid #ddd', 
+                                                        borderRadius: '5px', 
+                                                        padding: '12px 10px', 
+                                                        backgroundColor: '#f9f9f9',
+                                                        maxHeight: '150px',
+                                                        overflowY: 'auto'
+                                                      }}>
+                                                        {floor.rooms && floor.rooms.length > 0 ? (
+                                                          floor.rooms
+                                                            .filter(r => r.name !== room.name) // Exclude current room
+                                                            .map((otherRoom, idx) => {
+                                                              const currentBesideRooms = Array.isArray(editingRoomData?.besideRooms) 
+                                                                ? editingRoomData.besideRooms 
+                                                                : (Array.isArray(room.besideRooms) ? room.besideRooms : []);
+                                                              const isSelected = currentBesideRooms.includes(otherRoom.name || otherRoom._id);
+                                                              
+                                                              return (
+                                                                <label 
+                                                                  key={idx} 
+                                                                  style={{ 
+                                                                    display: 'flex', 
+                                                                    alignItems: 'center', 
+                                                                    marginBottom: idx === floor.rooms.filter(r => r.name !== room.name).length - 1 ? '0' : '8px',
+                                                                    cursor: 'pointer',
+                                                                    lineHeight: '1.5',
+                                                                    minHeight: '24px'
+                                                                  }}
+                                                                >
+                                                                  <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={(e) => {
+                                                                      const updatedBesideRooms = e.target.checked
+                                                                        ? [...currentBesideRooms, otherRoom.name || otherRoom._id]
+                                                                        : currentBesideRooms.filter(id => id !== (otherRoom.name || otherRoom._id));
+                                                                      handleUpdateRoom(pinId, floorIndex, originalIndex, { besideRooms: updatedBesideRooms });
+                                                                    }}
+                                                                    style={{ 
+                                                                      marginRight: '10px',
+                                                                      cursor: 'pointer',
+                                                                      flexShrink: 0,
+                                                                      width: '18px',
+                                                                      height: '18px'
+                                                                    }}
+                                                                  />
+                                                                  <span style={{ 
+                                                                    display: 'inline-block',
+                                                                    verticalAlign: 'middle',
+                                                                    lineHeight: '1.5'
+                                                                  }}>
+                                                                    {otherRoom.name} {otherRoom.description ? `- ${otherRoom.description}` : ''}
+                                                                  </span>
+                                                                </label>
+                                                              );
+                                                            })
+                                                        ) : (
+                                                          <p style={{ color: '#999', fontSize: '12px', margin: 0 }}>
+                                                            No other rooms on this floor
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                      <small style={{ color: '#666', fontSize: '11px' }}>
+                                                        Select rooms that are beside this room (used for elevator/stairs route instructions)
+                                                      </small>
+                                                    </div>
                                                     <div style={{ display: 'flex', gap: '10px' }}>
                                                       <button
                                                         type="button"
