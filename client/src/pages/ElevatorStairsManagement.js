@@ -271,10 +271,14 @@ function ElevatorStairsManagement() {
                 </h3>
                 
                 {pin.floors && pin.floors.map((floor, floorIndex) => {
-                  const elevatorStairsRooms = floor.rooms?.filter(room => {
+                  // Get all elevator/stairs rooms with their original indices
+                  const elevatorStairsRooms = floor.rooms?.map((room, idx) => {
                     const { isElevator, isStairs } = isElevatorOrStairs(room);
-                    return isElevator || isStairs;
-                  }) || [];
+                    if (isElevator || isStairs) {
+                      return { room, originalIndex: idx, isElevator, isStairs };
+                    }
+                    return null;
+                  }).filter(item => item !== null) || [];
 
                   if (elevatorStairsRooms.length === 0) return null;
 
