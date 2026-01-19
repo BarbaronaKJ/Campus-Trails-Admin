@@ -8,7 +8,6 @@ import CampusesManagement from './pages/CampusesManagement';
 import NotificationsManagement from './pages/NotificationsManagement';
 import FeedbacksManagement from './pages/FeedbacksManagement';
 import DevelopersManagement from './pages/DevelopersManagement';
-import FloorPlans from './pages/FloorPlans';
 import QRCodeManager from './pages/QRCodeManager';
 import MediaLibrary from './pages/MediaLibrary';
 import SystemSettings from './pages/SystemSettings';
@@ -41,7 +40,6 @@ function AppRoutes() {
       >
         <Route index element={<Dashboard />} />
         <Route path="pins" element={<PinsManagement />} />
-        <Route path="floors" element={<FloorPlans />} />
         <Route path="qrcodes" element={<QRCodeManager />} />
         <Route path="campuses" element={<CampusesManagement />} />
         <Route path="media" element={<MediaLibrary />} />

@@ -1171,7 +1171,7 @@ function PinsManagement() {
       {/* Edit Pin Form Modal */}
       {showEditPinForm && editPinData && (
         <div className="modal-overlay" onClick={() => setShowEditPinForm(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content" style={{ maxWidth: '900px', width: '95%' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h2>Edit Pin</h2>
               <button 
