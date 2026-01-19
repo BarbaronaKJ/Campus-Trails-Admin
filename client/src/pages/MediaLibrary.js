@@ -5,7 +5,7 @@ import { getApiBaseUrl } from '../utils/apiConfig';
 function MediaLibrary() {
   const [pins, setPins] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // all, buildings
+  const [filter, setFilter] = useState('all'); // all, buildings, rooms
   const [searchQuery, setSearchQuery] = useState(''); // Search query
   const [editingImage, setEditingImage] = useState(null); // { pinId, currentUrl }
   const [newImageUrl, setNewImageUrl] = useState('');
@@ -41,14 +41,45 @@ function MediaLibrary() {
           type: 'pin',
           title: pin.title,
           description: pin.description || '',
-          pinId: pin._id || pin.id
+          pinId: pin._id || pin.id,
+          buildingName: pin.description || pin.title
         });
       }
       
-      // Floor plan images removed - floor plans no longer displayed
-      // Room images removed - rooms no longer have individual images
+      // Room images
+      if (pin.floors && Array.isArray(pin.floors)) {
+        pin.floors.forEach(floor => {
+          if (floor.rooms && Array.isArray(floor.rooms)) {
+            floor.rooms.forEach(room => {
+              if (room.image && typeof room.image === 'string' && room.image.startsWith('http')) {
+                const floorName = floor.level === 0 ? 'Ground Floor' : `${floor.level + 1}${getOrdinalSuffix(floor.level + 1)} Floor`;
+                images.push({
+                  url: room.image,
+                  type: 'room',
+                  title: room.name,
+                  description: room.description || '',
+                  pinId: pin._id || pin.id,
+                  buildingName: pin.description || pin.title,
+                  roomId: room.name || room._id || room.id,
+                  floorLevel: floor.level,
+                  floorName: floorName
+                });
+              }
+            });
+          }
+        });
+      }
     });
     return images;
+  };
+
+  const getOrdinalSuffix = (num) => {
+    const j = num % 10;
+    const k = num % 100;
+    if (j === 1 && k !== 11) return 'st';
+    if (j === 2 && k !== 12) return 'nd';
+    if (j === 3 && k !== 13) return 'rd';
+    return 'th';
   };
 
   const handleSearch = () => {
@@ -61,7 +92,13 @@ function MediaLibrary() {
   };
 
   const handleEditImage = (img) => {
-    setEditingImage({ pinId: img.pinId, currentUrl: img.url });
+    setEditingImage({ 
+      pinId: img.pinId, 
+      currentUrl: img.url,
+      roomId: img.roomId,
+      floorLevel: img.floorLevel,
+      isRoom: img.type === 'room'
+    });
     setNewImageUrl(img.url);
   };
 
@@ -84,7 +121,44 @@ function MediaLibrary() {
 
     setUpdating(true);
     try {
-      await pinsAPI.update(editingImage.pinId, { image: newImageUrl.trim() });
+      if (editingImage.isRoom && editingImage.roomId && editingImage.floorLevel !== undefined) {
+        // Update room image
+        const baseUrl = getApiBaseUrl();
+        const token = localStorage.getItem('adminToken');
+        
+        // Fetch the building pin
+        const buildingRes = await fetch(`${baseUrl}/api/admin/pins/${editingImage.pinId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!buildingRes.ok) {
+          throw new Error('Failed to fetch building data');
+        }
+        
+        const buildingData = await buildingRes.json();
+        const building = buildingData.success ? buildingData.pin : buildingData.data;
+        
+        // Update the room image in the building's floors
+        const updatedFloors = building.floors.map(floor => {
+          if (floor.level === editingImage.floorLevel) {
+            const updatedRooms = floor.rooms.map(room => {
+              if ((room.name || room.id) === editingImage.roomId) {
+                return { ...room, image: newImageUrl.trim() };
+              }
+              return room;
+            });
+            return { ...floor, rooms: updatedRooms };
+          }
+          return floor;
+        });
+        
+        // Update the building with modified floors
+        await pinsAPI.update(editingImage.pinId, { floors: updatedFloors });
+      } else {
+        // Update building image
+        await pinsAPI.update(editingImage.pinId, { image: newImageUrl.trim() });
+      }
+      
       // Refresh pins data
       await fetchPins();
       setEditingImage(null);
@@ -188,6 +262,7 @@ function MediaLibrary() {
             >
             <option value="all">All Images</option>
             <option value="pin">Building Images</option>
+            <option value="room">Room Images</option>
             </select>
           </div>
         </div>
@@ -258,6 +333,18 @@ function MediaLibrary() {
                     flex: 1
                   }}>
                     {img.description}
+                  </p>
+                )}
+                {img.type === 'room' && img.buildingName && (
+                  <p style={{ 
+                    margin: '0 0 10px 0', 
+                    fontSize: '12px', 
+                    color: '#007bff',
+                    fontWeight: '600',
+                    lineHeight: '1.4'
+                  }}>
+                    🏢 {img.buildingName}
+                    {img.floorName && ` • ${img.floorName}`}
                   </p>
                 )}
                 <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
