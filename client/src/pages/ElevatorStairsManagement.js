@@ -324,14 +324,25 @@ function ElevatorStairsManagement() {
                                 </button>
                               </div>
                               
-                              {room.besideRooms && Array.isArray(room.besideRooms) && room.besideRooms.length > 0 && (
+                              {room.besideRooms && Array.isArray(room.besideRooms) && room.besideRooms.length > 0 ? (
                                 <div style={{ marginTop: '10px' }}>
                                   <span style={{ fontSize: '12px', color: '#666', marginBottom: '6px', display: 'block' }}>
                                     Currently beside:
                                   </span>
                                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                                     {room.besideRooms.map((besideRoomName, idx) => {
-                                      const besideRoom = floor.rooms?.find(r => (r.name || r.id) === besideRoomName);
+                                      // Match by room.name first (primary identifier like "9-E1", "9-S1")
+                                      const besideRoom = floor.rooms?.find(r => {
+                                        const rName = String(r.name || '').trim();
+                                        const rId = String(r.id || '').trim();
+                                        const searchId = String(besideRoomName || '').trim();
+                                        return rName === searchId || 
+                                               rName.toLowerCase() === searchId.toLowerCase() ||
+                                               rId === searchId;
+                                      });
+                                      const displayName = besideRoom 
+                                        ? (besideRoom.name ? `${besideRoom.name}${besideRoom.description ? ` | ${besideRoom.description}` : ''}` : (besideRoom.description || besideRoomName))
+                                        : besideRoomName;
                                       return (
                                         <span key={idx} style={{
                                           padding: '4px 8px',
@@ -340,11 +351,17 @@ function ElevatorStairsManagement() {
                                           fontSize: '11px',
                                           color: '#333'
                                         }}>
-                                          {besideRoom?.description || besideRoom?.name || besideRoomName}
+                                          {displayName}
                                         </span>
                                       );
                                     })}
                                   </div>
+                                </div>
+                              ) : (
+                                <div style={{ marginTop: '10px' }}>
+                                  <span style={{ fontSize: '12px', color: '#999', fontStyle: 'italic' }}>
+                                    No beside rooms configured. Click "Configure Beside Rooms" to set up.
+                                  </span>
                                 </div>
                               )}
                             </div>
@@ -396,16 +413,20 @@ function ElevatorStairsManagement() {
                 overflowY: 'auto'
               }}>
                 {selectedFloor.rooms?.filter(r => {
+                  // Exclude the current elevator/stairs room
                   const roomKey = String(r.name || r.id || '').trim();
                   const currentRoomKey = String(editingElevatorStairs.room.name || editingElevatorStairs.room.id || '').trim();
                   return roomKey !== currentRoomKey && roomKey !== '';
                 }).map((otherRoom, idx) => {
-                  const otherRoomKey = String(otherRoom.name || otherRoom.id || '').trim();
+                  // Use room.name as the primary identifier (e.g., "9-E1", "9-S1", "9-S2")
+                  const otherRoomName = String(otherRoom.name || '').trim();
                   const isSelected = Array.isArray(editingElevatorStairs.currentBesideRooms) 
                     ? editingElevatorStairs.currentBesideRooms.some(besideId => {
                         const besideKey = String(besideId || '').trim();
-                        return besideKey === otherRoomKey || 
-                               besideKey.toLowerCase() === otherRoomKey.toLowerCase();
+                        // Match by room name primarily
+                        return besideKey === otherRoomName || 
+                               besideKey.toLowerCase() === otherRoomName.toLowerCase() ||
+                               besideKey === String(otherRoom.id || '').trim();
                       })
                     : false;
                   return (
@@ -422,17 +443,19 @@ function ElevatorStairsManagement() {
                           const currentBesideRooms = Array.isArray(editingElevatorStairs.currentBesideRooms) 
                             ? [...editingElevatorStairs.currentBesideRooms]
                             : [];
+                          // Always use room.name as the identifier (e.g., "9-E1", "9-S1")
+                          const roomNameToStore = otherRoom.name || otherRoom.id;
                           if (e.target.checked) {
-                            // Add room name/id if not already present
-                            const roomKey = String(otherRoom.name || otherRoom.id || '').trim();
-                            if (roomKey && !currentBesideRooms.some(b => String(b || '').trim() === roomKey)) {
-                              editingElevatorStairs.currentBesideRooms = [...currentBesideRooms, otherRoom.name || otherRoom.id];
+                            // Add room name if not already present
+                            if (roomNameToStore && !currentBesideRooms.some(b => 
+                              String(b || '').trim() === String(roomNameToStore || '').trim()
+                            )) {
+                              editingElevatorStairs.currentBesideRooms = [...currentBesideRooms, roomNameToStore];
                             }
                           } else {
-                            // Remove room name/id
-                            const roomKey = String(otherRoom.name || otherRoom.id || '').trim();
+                            // Remove room name
                             editingElevatorStairs.currentBesideRooms = currentBesideRooms.filter(r => 
-                              String(r || '').trim() !== roomKey
+                              String(r || '').trim() !== String(roomNameToStore || '').trim()
                             );
                           }
                           setEditingElevatorStairs({ ...editingElevatorStairs });
@@ -440,7 +463,7 @@ function ElevatorStairsManagement() {
                         style={{ marginRight: '10px', width: '18px', height: '18px', flexShrink: 0 }}
                       />
                       <span style={{ display: 'inline-block', verticalAlign: 'middle' }}>
-                        {otherRoom.description || otherRoom.name || 'Unnamed Room'}
+                        {otherRoom.name ? `${otherRoom.name}${otherRoom.description ? ` | ${otherRoom.description}` : ''}` : (otherRoom.description || 'Unnamed Room')}
                       </span>
                     </label>
                   );
