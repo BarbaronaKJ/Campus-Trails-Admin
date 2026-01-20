@@ -144,7 +144,17 @@ function ElevatorStairsManagement() {
 
   const handleSaveBesideRooms = (pinId, floorIndex, roomIndex, besideRooms) => {
     const pin = pins.find(p => (p._id || p.id) === pinId);
-    if (!pin || !pin.floors || !pin.floors[floorIndex]) return;
+    if (!pin || !pin.floors || !pin.floors[floorIndex] || !pin.floors[floorIndex].rooms) {
+      console.error('Invalid pin, floor, or rooms data');
+      setError('Invalid data structure');
+      return;
+    }
+
+    if (roomIndex < 0 || roomIndex >= pin.floors[floorIndex].rooms.length) {
+      console.error('Invalid room index:', roomIndex, 'for floor:', floorIndex);
+      setError('Invalid room index');
+      return;
+    }
 
     // Deep clone to ensure we're working with a fresh copy
     const updatedFloors = JSON.parse(JSON.stringify(pin.floors));
@@ -152,9 +162,16 @@ function ElevatorStairsManagement() {
     
     // Ensure we preserve all existing room properties when updating besideRooms
     const existingRoom = updatedRooms[roomIndex];
+    if (!existingRoom) {
+      console.error('Room not found at index:', roomIndex);
+      setError('Room not found');
+      return;
+    }
+
+    // Create updated room with besideRooms
     updatedRooms[roomIndex] = {
       ...existingRoom,
-      besideRooms: Array.isArray(besideRooms) ? [...besideRooms] : [] // Ensure it's a new array
+      besideRooms: Array.isArray(besideRooms) ? besideRooms.filter(b => b && b.trim() !== '') : [] // Filter out empty values
     };
     
     updatedFloors[floorIndex] = {
@@ -162,6 +179,8 @@ function ElevatorStairsManagement() {
       rooms: updatedRooms
     };
 
+    console.log('Saving besideRooms for room:', existingRoom.name, 'besideRooms:', updatedRooms[roomIndex].besideRooms);
+    
     setEditingElevatorStairs(null);
     updatePinFloors(pinId, updatedFloors);
   };
