@@ -79,8 +79,16 @@ function ElevatorStairsManagement() {
 
   const updatePinFloors = async (pinId, updatedFloors) => {
     try {
+      setError('');
       const baseUrl = getApiBaseUrl();
       const token = localStorage.getItem('adminToken');
+      
+      if (!token) {
+        throw new Error('Authentication required');
+      }
+
+      console.log('Updating floors for pin:', pinId);
+      console.log('Floors data:', JSON.stringify(updatedFloors, null, 2));
       
       const response = await fetch(`${baseUrl}/api/admin/pins/${pinId}`, {
         method: 'PUT',
@@ -92,11 +100,18 @@ function ElevatorStairsManagement() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to update floors');
+        const errorData = await response.json().catch(() => ({ message: 'Failed to update floors' }));
+        console.error('Error response:', errorData);
+        throw new Error(errorData.message || `Server error: ${response.status}`);
       }
+
+      const result = await response.json();
+      console.log('Update successful:', result);
 
       setSuccess('Elevator/Stairs configuration updated successfully!');
       setTimeout(() => setSuccess(''), 3000);
+      
+      // Refresh data to get the updated values
       await fetchData();
     } catch (err) {
       console.error('Error updating floors:', err);
@@ -134,10 +149,27 @@ function ElevatorStairsManagement() {
 
   const handleEditBesideRooms = (pinId, floorIndex, roomIndex, type) => {
     const pin = pins.find(p => (p._id || p.id) === pinId);
-    if (!pin || !pin.floors || !pin.floors[floorIndex] || !pin.floors[floorIndex].rooms) return;
+    if (!pin || !pin.floors || !pin.floors[floorIndex] || !pin.floors[floorIndex].rooms) {
+      console.error('Invalid pin, floor, or rooms when editing beside rooms');
+      return;
+    }
     
+    if (roomIndex < 0 || roomIndex >= pin.floors[floorIndex].rooms.length) {
+      console.error('Invalid room index:', roomIndex, 'for floor:', floorIndex);
+      return;
+    }
+
     const room = pin.floors[floorIndex].rooms[roomIndex];
-    setEditingElevatorStairs({ pinId, floorIndex, roomIndex, type, room, currentBesideRooms: room.besideRooms || [] });
+    console.log('Editing beside rooms for room:', room.name, 'current besideRooms:', room.besideRooms);
+    
+    setEditingElevatorStairs({ 
+      pinId, 
+      floorIndex, 
+      roomIndex, 
+      type, 
+      room, 
+      currentBesideRooms: Array.isArray(room.besideRooms) ? [...room.besideRooms] : [] 
+    });
     setSelectedPin(pin);
     setSelectedFloor(pin.floors[floorIndex]);
   };
