@@ -195,11 +195,16 @@ router.put('/:id/neighbors', authenticateToken, async (req, res) => {
         const neighborIdStr = String(neighborId);
         
         // Find neighbor pin by id or _id
+        // Build query conditions based on neighborId type
+        const queryConditions = [{ id: neighborId }];
+        
+        // Only add _id condition if neighborId is a valid ObjectId
+        if (mongoose.Types.ObjectId.isValid(neighborId)) {
+          queryConditions.push({ _id: neighborId });
+        }
+        
         const neighborPin = await Pin.findOne({
-          $or: [
-            { id: neighborId },
-            { _id: mongoose.Types.ObjectId.isValid(neighborId) ? neighborId : null }
-          ]
+          $or: queryConditions
         });
 
         if (neighborPin) {
