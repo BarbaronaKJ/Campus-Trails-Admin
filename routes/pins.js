@@ -78,6 +78,7 @@ const generateQRCode = (pinId) => {
  * Generate QR code for a room
  * Format: campustrails://room/buildingId_f{floorLevel}_normalizedRoomName
  * Normalizes room name by removing prefixes and replacing spaces with underscores
+ * Preserves hyphens in room names (e.g., "2-101" stays as "2-101" not "2_101")
  */
 const generateRoomQrCode = (buildingId, floorLevel, roomName) => {
   if (!roomName || !roomName.trim()) {
@@ -88,7 +89,8 @@ const generateRoomQrCode = (buildingId, floorLevel, roomName) => {
   let normalizedName = roomName.trim();
   normalizedName = normalizedName.replace(/^(CR\s*\|\s*|9-|41-|etc\.\s*)/i, '');
   
-  // Replace spaces with underscores and convert to uppercase
+  // Replace spaces with underscores but preserve hyphens (e.g., "2-101" -> "2-101", not "2_101")
+  // This ensures consistency with how room names are stored in the database
   normalizedName = normalizedName.replace(/\s+/g, '_').toUpperCase();
   
   // Generate QR code in format: campustrails://room/buildingId_f{floorLevel}_normalizedRoomName
