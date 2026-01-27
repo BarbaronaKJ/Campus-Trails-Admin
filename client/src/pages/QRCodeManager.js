@@ -40,21 +40,15 @@ function QRCodeManager() {
   }
 
   const generateRoomQRCode = (buildingId, floorLevel, roomName) => {
-    if (!roomName || !roomName.trim()) {
+    if (!roomName || !roomName.trim() || buildingId === undefined || buildingId === null) {
       return null
     }
     
-    // Normalize room name: remove common prefixes like "CR | ", "9-", "41-", etc.
-    let normalizedName = roomName.trim()
-    normalizedName = normalizedName.replace(/^(CR\s*\|\s*|9-|41-|etc\.\s*)/i, '')
+    // URL encode the room name to handle special characters
+    const encodedRoomName = encodeURIComponent(roomName.trim())
     
-    // Replace spaces with underscores but preserve hyphens (e.g., "2-101" -> "2-101", not "2_101")
-    // Convert to uppercase for consistency
-    normalizedName = normalizedName.replace(/\s+/g, '_').toUpperCase()
-    
-    // Generate QR code in format: campustrails://room/buildingId_f{floorLevel}_normalizedRoomName
-    const roomId = `${buildingId}_f${floorLevel}_${normalizedName}`
-    return `campustrails://room/${roomId}`
+    // Generate QR code in format: campustrails://pin/{buildingId}?room={roomName}&floor={floorLevel}
+    return `campustrails://pin/${buildingId}?room=${encodedRoomName}&floor=${floorLevel}`
   }
 
   const fetchData = useCallback(async () => {
