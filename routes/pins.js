@@ -265,8 +265,15 @@ router.put('/:id/neighbors', authenticateToken, async (req, res) => {
       }
     }
 
-    // Populate campusId for response
-    await pin.populate('campusId', 'name');
+    // Populate campusId for response (only if it exists)
+    try {
+      if (pin.campusId) {
+        await pin.populate('campusId', 'name');
+      }
+    } catch (populateError) {
+      console.error('Error populating campusId (non-fatal):', populateError);
+      // Continue without population - not critical
+    }
 
     console.log('Neighbors updated successfully:', {
       pinId: pin._id,
