@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import { getApiBaseUrl } from '../utils/apiConfig'
 // Use qrcode library (not qrcode.react) - this is a Node.js library that works in browser
 // Import the default export explicitly
@@ -18,7 +18,7 @@ function QRCodeManager() {
 
   useEffect(() => {
     fetchData()
-  }, [])
+  }, [fetchData])
 
   // Generate QR code images for all items
   useEffect(() => {
@@ -58,7 +58,7 @@ function QRCodeManager() {
     }
   }, [buildings, rooms])
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       setLoading(true)
       setError('')
@@ -127,7 +127,7 @@ function QRCodeManager() {
       setError(err.message || 'Failed to fetch data')
       setLoading(false)
     }
-  }
+  }, [])
 
   const getFloorName = (level) => {
     if (level === 0) return 'Ground Floor'

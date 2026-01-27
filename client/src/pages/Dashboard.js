@@ -14,9 +14,9 @@ function Dashboard() {
     feedbacks: 0,
     suggestionsAndFeedbacks: 0
   });
-  const [feedbackTrends, setFeedbackTrends] = useState([]);
-  const [searchesAndPathfindingTrends, setSearchesAndPathfindingTrends] = useState([]);
-  const [localTracking, setLocalTracking] = useState({
+  const [feedbackTrends] = useState([]);
+  const [searchesAndPathfindingTrends] = useState([]);
+  const [localTracking] = useState({
     totalSearches: 0,
     totalPathfinding: 0,
     totalSavedPins: 0,
