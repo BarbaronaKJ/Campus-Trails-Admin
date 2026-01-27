@@ -191,9 +191,8 @@ router.put('/:id/neighbors', authenticateToken, async (req, res) => {
 
     // Update bidirectional connections for each neighbor
     for (const neighborId of normalizedNeighbors) {
+      const neighborIdStr = String(neighborId);
       try {
-        const neighborIdStr = String(neighborId);
-        
         // Find neighbor pin by id or _id
         // Build query conditions based on neighborId type
         const queryConditions = [{ id: neighborId }];
@@ -262,6 +261,13 @@ router.put('/:id/neighbors', authenticateToken, async (req, res) => {
     res.json({ success: true, pin });
   } catch (error) {
     console.error('Update neighbors error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Request details:', {
+      pinId: req.params.id,
+      neighbors: req.body.neighbors,
+      neighborsType: typeof req.body.neighbors,
+      neighborsIsArray: Array.isArray(req.body.neighbors)
+    });
     res.status(500).json({ 
       success: false, 
       message: 'Server error', 
