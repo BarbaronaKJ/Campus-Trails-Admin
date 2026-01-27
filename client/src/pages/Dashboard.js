@@ -167,7 +167,38 @@ function Dashboard() {
         const feedbackDate = new Date(f.date || f.createdAt);
         return feedbackDate >= sevenDaysAgo;
       });
-      const feedbackTrendsData = processTrendData(recentFeedbacks, 'date');
+      
+      // Separate facility reports from app feedback
+      const facilityReports = recentFeedbacks.filter(f => f.type === 'facility' || !f.type);
+      const appFeedbacks = suggestions.filter(s => {
+        const suggestionDate = new Date(s.createdAt || s.date);
+        return suggestionDate >= sevenDaysAgo;
+      });
+      
+      // Process into trend format
+      const facilityTrends = processTrendData(facilityReports, 'date');
+      const appFeedbackTrends = processTrendData(appFeedbacks, 'createdAt');
+      
+      // Combine into one chart format
+      const allFeedbackDates = new Set([
+        ...facilityTrends.map(t => t.date),
+        ...appFeedbackTrends.map(t => t.date)
+      ]);
+      
+      const feedbackTrendsData = Array.from(allFeedbackDates).map(date => {
+        const facilityCount = facilityTrends.find(t => t.date === date)?.count || 0;
+        const appFeedbackCount = appFeedbackTrends.find(t => t.date === date)?.count || 0;
+        return {
+          date,
+          'Facility Reports': facilityCount,
+          'User App Feedback': appFeedbackCount
+        };
+      }).sort((a, b) => {
+        const dateA = new Date(a.date);
+        const dateB = new Date(b.date);
+        return dateA - dateB;
+      });
+      
       setFeedbackTrends(feedbackTrendsData);
 
       // Process searches and pathfinding trends from analytics
