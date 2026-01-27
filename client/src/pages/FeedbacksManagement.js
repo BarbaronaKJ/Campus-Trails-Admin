@@ -59,7 +59,11 @@ function FeedbacksManagement() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleDeleteFeedback = async (feedbackData) => {
     if (!window.confirm('Are you sure you want to delete this feedback/report?')) {
