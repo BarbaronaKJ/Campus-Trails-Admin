@@ -218,8 +218,8 @@ function Dashboard() {
           const pathfindingCount = pathfindingTrends.find(t => t.date === date)?.count || 0;
           combinedTrends.push({
             date,
-            Searches: searchesCount,
-            Pathfinding: pathfindingCount
+            'Total Searches': searchesCount,
+            'Pathfinding Routes': pathfindingCount
           });
         });
         
