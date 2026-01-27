@@ -678,7 +678,7 @@ function Dashboard() {
     } finally {
       setDetailedLoading(false);
     }
-  };
+  }, [selectedCampus]);
 
   useEffect(() => {
     if (selectedMetric) {
