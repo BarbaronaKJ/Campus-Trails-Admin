@@ -234,8 +234,6 @@ function Dashboard() {
         // Calculate local tracking stats
         const totalSearches = analyticsData.totalSearches || 0;
         const totalPathfinding = analyticsData.totalPathfindingRoutes || 0;
-        const recentSearchesCount = analyticsData.recentSearchesCount || 0;
-        const recentRoutesCount = analyticsData.recentRoutesCount || 0;
         
         // Calculate saved pins from users
         let totalSavedPins = 0;
