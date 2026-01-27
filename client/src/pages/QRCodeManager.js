@@ -16,47 +16,34 @@ function QRCodeManager() {
   const [selectedItem, setSelectedItem] = useState(null) // For QR code preview modal
   const [qrCodeImages, setQrCodeImages] = useState({}) // Cache QR code images
 
-  useEffect(() => {
-    fetchData()
-  }, [fetchData])
+  // Helper functions - must be defined before fetchData uses them
+  const getFloorName = (level) => {
+    if (level === 0) return 'Ground Floor'
+    const floorNumber = level + 1
+    const lastDigit = floorNumber % 10
+    const lastTwoDigits = floorNumber % 100
+    let suffix = 'th'
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+      suffix = 'th'
+    } else if (lastDigit === 1) {
+      suffix = 'st'
+    } else if (lastDigit === 2) {
+      suffix = 'nd'
+    } else if (lastDigit === 3) {
+      suffix = 'rd'
+    }
+    return `${floorNumber}${suffix} Floor`
+  }
 
-  // Generate QR code images for all items
-  useEffect(() => {
-    const generateQRImages = async () => {
-      const images = {}
-      
-      // Generate for buildings
-      for (const building of buildings) {
-        if (building.qrCode) {
-          try {
-            const dataUrl = await QRCodeLib.toDataURL(building.qrCode, { width: 200, margin: 1 })
-            images[`building-${building._id}`] = dataUrl
-          } catch (err) {
-            console.error('Error generating QR code for building:', building._id, err)
-          }
-        }
-      }
-      
-      // Generate for rooms
-      for (const room of rooms) {
-        if (room.qrCode) {
-          try {
-            const key = `room-${room.buildingId}-${room.floorLevel}-${room.name}`
-            const dataUrl = await QRCodeLib.toDataURL(room.qrCode, { width: 200, margin: 1 })
-            images[key] = dataUrl
-          } catch (err) {
-            console.error('Error generating QR code for room:', room.name, err)
-          }
-        }
-      }
-      
-      setQrCodeImages(images)
-    }
-    
-    if (buildings.length > 0 || rooms.length > 0) {
-      generateQRImages()
-    }
-  }, [buildings, rooms])
+  const generateBuildingQRCode = (pinId) => {
+    return `campustrails://pin/${pinId}`
+  }
+
+  const generateRoomQRCode = (buildingId, floorLevel, roomName) => {
+    // Generate a unique identifier for the room
+    const roomId = `${buildingId}_f${floorLevel}_${roomName.replace(/\s+/g, '_')}`
+    return `campustrails://room/${roomId}`
+  }
 
   const fetchData = useCallback(async () => {
     try {
@@ -129,33 +116,47 @@ function QRCodeManager() {
     }
   }, [])
 
-  const getFloorName = (level) => {
-    if (level === 0) return 'Ground Floor'
-    const floorNumber = level + 1
-    const lastDigit = floorNumber % 10
-    const lastTwoDigits = floorNumber % 100
-    let suffix = 'th'
-    if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
-      suffix = 'th'
-    } else if (lastDigit === 1) {
-      suffix = 'st'
-    } else if (lastDigit === 2) {
-      suffix = 'nd'
-    } else if (lastDigit === 3) {
-      suffix = 'rd'
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  // Generate QR code images for all items
+  useEffect(() => {
+    const generateQRImages = async () => {
+      const images = {}
+      
+      // Generate for buildings
+      for (const building of buildings) {
+        if (building.qrCode) {
+          try {
+            const dataUrl = await QRCodeLib.toDataURL(building.qrCode, { width: 200, margin: 1 })
+            images[`building-${building._id}`] = dataUrl
+          } catch (err) {
+            console.error('Error generating QR code for building:', building._id, err)
+          }
+        }
+      }
+      
+      // Generate for rooms
+      for (const room of rooms) {
+        if (room.qrCode) {
+          try {
+            const key = `room-${room.buildingId}-${room.floorLevel}-${room.name}`
+            const dataUrl = await QRCodeLib.toDataURL(room.qrCode, { width: 200, margin: 1 })
+            images[key] = dataUrl
+          } catch (err) {
+            console.error('Error generating QR code for room:', room.name, err)
+          }
+        }
+      }
+      
+      setQrCodeImages(images)
     }
-    return `${floorNumber}${suffix} Floor`
-  }
-
-  const generateBuildingQRCode = (pinId) => {
-    return `campustrails://pin/${pinId}`
-  }
-
-  const generateRoomQRCode = (buildingId, floorLevel, roomName) => {
-    // Generate a unique identifier for the room
-    const roomId = `${buildingId}_f${floorLevel}_${roomName.replace(/\s+/g, '_')}`
-    return `campustrails://room/${roomId}`
-  }
+    
+    if (buildings.length > 0 || rooms.length > 0) {
+      generateQRImages()
+    }
+  }, [buildings, rooms])
 
   const handleGenerateQRCode = async (item) => {
     try {
