@@ -84,7 +84,7 @@ function Login() {
     }
 
     const hasCapital = /[A-Z]/.test(forgotNewPassword);
-    const hasSymbol = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(forgotNewPassword);
+    const hasSymbol = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(forgotNewPassword);
     
     if (!hasCapital || !hasSymbol) {
       setForgotPasswordMessage({ type: 'error', text: 'Password must contain at least one capital letter and one symbol' });

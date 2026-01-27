@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiConfig';
@@ -40,7 +40,7 @@ function Dashboard() {
   const CAMPUS_TRAILS_RED = '#dc3545';
   const CAMPUS_TRAILS_YELLOW = '#ffc107';
 
-  const checkSystemHealth = async () => {
+  const checkSystemHealth = useCallback(async () => {
     try {
       const baseUrl = getApiBaseUrl();
       
@@ -66,7 +66,7 @@ function Dashboard() {
     } catch (error) {
       console.error('Health check error:', error);
     }
-  };
+  }, []);
 
   const handleCardClick = (metricType) => {
     if (selectedMetric === metricType) {
@@ -87,15 +87,72 @@ function Dashboard() {
     setPinViewMode('visible');
   };
 
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const baseUrl = getApiBaseUrl();
+      const token = localStorage.getItem('adminToken');
+      
+      // Fetch campuses
+      const campusesRes = await campusesAPI.getAll();
+      const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
+      setCampuses(campusesData);
+
+      // Build query params
+      const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
+
+      // Fetch all data
+      const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
+        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.json()),
+        usersAPI.getAll({ limit: 10000 }),
+        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 })
+      ]);
+
+      const pins = pinsRes.pins || pinsRes.data || [];
+      const users = usersRes.data?.users || usersRes.data || [];
+      const suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
+
+      // Extract all feedbackHistory from users for facility reports
+      const allFeedbackHistory = [];
+      users.forEach(user => {
+        if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
+          user.activity.feedbackHistory.forEach(feedback => {
+            allFeedbackHistory.push({
+              ...feedback,
+              userId: user._id,
+              date: feedback.date || feedback.createdAt
+            });
+          });
+        }
+      });
+
+      // Calculate stats
+      setStats({
+        pins: pins.length,
+        users: users.length,
+        campuses: campusesData.length,
+        feedbacks: allFeedbackHistory.length,
+        suggestionsAndFeedbacks: suggestions.length
+      });
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      setError('Failed to load dashboard data');
+    } finally {
+      setLoading(false);
+    }
+  }, [selectedCampus]);
+
   useEffect(() => {
     fetchData();
     checkSystemHealth();
     // Refresh system health every 30 seconds
     const healthInterval = setInterval(checkSystemHealth, 30000);
     return () => clearInterval(healthInterval);
-  }, [selectedCampus]);
+  }, [fetchData, checkSystemHealth]);
 
-  const fetchDetailedData = async (metricType) => {
+  const fetchDetailedData = useCallback(async (metricType) => {
     try {
       setDetailedLoading(true);
       const baseUrl = getApiBaseUrl ? getApiBaseUrl() : (process.env.REACT_APP_API_URL || 'http://localhost:5001');
@@ -629,159 +686,7 @@ function Dashboard() {
     } else {
       setDetailedData(null);
     }
-  }, [selectedMetric, selectedCampus]);
-
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      const baseUrl = getApiBaseUrl();
-      const token = localStorage.getItem('adminToken');
-      
-      // Fetch campuses
-      const campusesRes = await campusesAPI.getAll();
-      const campusesData = campusesRes.data?.campuses || campusesRes.data || [];
-      setCampuses(campusesData);
-
-      // Build query params
-      const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
-
-      // Fetch all data
-      const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
-        fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        }).then(r => r.json()),
-        usersAPI.getAll({ limit: 10000 }),
-        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 })
-      ]);
-
-      const pins = pinsRes.pins || pinsRes.data || [];
-      const users = usersRes.data?.users || usersRes.data || [];
-      const suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
-
-      // Extract all feedbackHistory from users for facility reports
-      const allFeedbackHistory = [];
-      users.forEach(user => {
-        if (user.activity && user.activity.feedbackHistory && Array.isArray(user.activity.feedbackHistory)) {
-          user.activity.feedbackHistory.forEach(feedback => {
-            allFeedbackHistory.push({
-              ...feedback,
-              userId: user._id,
-              date: feedback.date || feedback.createdAt
-            });
-          });
-        }
-      });
-
-      // Calculate stats
-      setStats({
-        pins: pins.length,
-        users: users.length,
-        campuses: campusesData.length,
-        feedbacks: allFeedbackHistory.length,
-        suggestionsAndFeedbacks: suggestions.length
-      });
-
-      // Calculate local tracking data
-      let totalSearches = 0;
-      let totalPathfinding = 0;
-      let totalSavedPins = 0;
-      const activeUsersSet = new Set();
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-
-      users.forEach(user => {
-        // Count saved pins
-        if (user.activity?.savedPins) {
-          totalSavedPins += user.activity.savedPins.length;
-        }
-
-        // Count searches
-        if (user.activity?.searchCount) {
-          totalSearches += user.activity.searchCount || 0;
-        }
-
-        // Count pathfinding
-        if (user.activity?.pathfindingCount) {
-          totalPathfinding += user.activity.pathfindingCount || 0;
-        }
-
-        // Track active users (last 7 days)
-        if (user.activity?.lastActiveDate) {
-          const lastActive = new Date(user.activity.lastActiveDate);
-          if (lastActive >= sevenDaysAgo) {
-            activeUsersSet.add(user._id);
-          }
-        }
-      });
-
-      setLocalTracking({
-        totalSearches,
-        totalPathfinding,
-        totalSavedPins,
-        activeUsers7Days: activeUsersSet.size,
-        avgSearchesPerUser: users.length > 0 ? (totalSearches / users.length).toFixed(1) : 0,
-        avgPathfindingPerUser: users.length > 0 ? (totalPathfinding / users.length).toFixed(1) : 0,
-        avgSavedPinsPerUser: users.length > 0 ? (totalSavedPins / users.length).toFixed(1) : 0
-      });
-
-      // Calculate feedback trends (last 7 days)
-      const now = new Date();
-      const trendsData = [];
-      
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        // Create day boundaries
-        const dayStart = new Date(date);
-        dayStart.setHours(0, 0, 0, 0);
-        const dayEnd = new Date(date);
-        dayEnd.setHours(23, 59, 59, 999);
-        
-        // Count facility reports from feedbackHistory
-        const reports = allFeedbackHistory.filter(f => {
-          const feedbackDate = new Date(f.date || f.createdAt || 0);
-          return feedbackDate >= dayStart && feedbackDate <= dayEnd;
-        }).length;
-        
-        // Count user app feedback from suggestions
-        const appFeedback = suggestions.filter(s => {
-          const createdAt = new Date(s.createdAt);
-          return createdAt >= dayStart && createdAt <= dayEnd;
-        }).length;
-
-        trendsData.push({
-          date: dateStr,
-          'Facility Reports': reports,
-          'User App Feedback': appFeedback
-        });
-      }
-
-      setFeedbackTrends(trendsData);
-
-      // Calculate searches and pathfinding trends (last 7 days)
-      const searchesPathfindingTrendsData = [];
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-        
-        // Note: Actual search/pathfinding dates would need to be tracked in user activity
-        // For now, we'll use placeholder/distributed data based on totals
-        const dailySearches = Math.floor(totalSearches / 7) + Math.floor(Math.random() * (totalSearches / 14));
-        const dailyPathfinding = Math.floor(totalPathfinding / 7) + Math.floor(Math.random() * (totalPathfinding / 14));
-        
-        searchesPathfindingTrendsData.push({
-          date: dateStr,
-          'Total Searches': dailySearches,
-          'Pathfinding Routes': dailyPathfinding
-        });
-      }
-      setSearchesAndPathfindingTrends(searchesPathfindingTrendsData);
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [selectedMetric, selectedCampus, fetchDetailedData]);
 
   if (loading) {
     return (
@@ -1109,7 +1014,6 @@ function Dashboard() {
                 <h3>All Reports ({detailedData.reportsList.length})</h3>
                 <ul className="report-list">
                   {detailedData.reportsList.map((report, idx) => {
-                    const reportType = report.type || report.feedbackType;
                     return (
                       <li key={report._id || idx} className="report-item">
                         <div className="report-header">

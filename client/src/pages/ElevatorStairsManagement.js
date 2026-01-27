@@ -347,7 +347,7 @@ function ElevatorStairsManagement() {
                       
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                         {elevatorStairsRooms.map((item, roomIndex) => {
-                          const { room, originalIndex, isElevator, isStairs } = item;
+                          const { room, originalIndex, isElevator } = item;
                           
                           return (
                             <div key={`${floorIndex}-${originalIndex}-${roomIndex}`} style={{

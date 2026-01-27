@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { usersAPI, suggestionsAndFeedbacksAPI } from '../services/api';
 import { matchesFlexible } from '../utils/fuzzySearch';
 
@@ -10,11 +10,7 @@ function FeedbacksManagement() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchInput, setSearchInput] = useState(''); // Separate state for input field
 
-  useEffect(() => {
-    fetchData();
-  }, [activeTab]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       if (activeTab === 'reports') {
