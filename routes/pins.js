@@ -74,6 +74,27 @@ const generateQRCode = (pinId) => {
   return `campustrails://pin/${pinId}`;
 };
 
+/**
+ * Generate QR code for a room
+ * Format: buildingId_f{floorLevel}_normalizedRoomName
+ * Normalizes room name by removing prefixes and replacing spaces with underscores
+ */
+const generateRoomQrCode = (buildingId, floorLevel, roomName) => {
+  if (!roomName || !roomName.trim()) {
+    return null;
+  }
+  
+  // Normalize room name: remove common prefixes like "CR | ", "9-", "41-", etc.
+  let normalizedName = roomName.trim();
+  normalizedName = normalizedName.replace(/^(CR\s*\|\s*|9-|41-|etc\.\s*)/i, '');
+  
+  // Replace spaces with underscores and convert to uppercase
+  normalizedName = normalizedName.replace(/\s+/g, '_').toUpperCase();
+  
+  // Generate QR code in format: buildingId_f{floorLevel}_normalizedRoomName
+  return `${buildingId}_f${floorLevel}_${normalizedName}`;
+};
+
 // Create pin
 router.post('/', authenticateToken, async (req, res) => {
   try {
@@ -288,13 +309,35 @@ router.put('/:id', authenticateToken, async (req, res) => {
         level: floor.level,
         floorPlan: floor.floorPlan || null,
         rooms: floor.rooms ? floor.rooms.map(room => {
+          // Find existing room to check for name changes
+          const existingFloor = existingPin.floors?.find(f => f.level === floor.level);
+          const existingRoom = existingFloor?.rooms?.find(r => 
+            r.name === room.name || 
+            (r._id && room._id && String(r._id) === String(room._id))
+          );
+          
+          // Auto-generate QR code if not provided or if room name changed
+          let roomQrCode = room.qrCode || null; // Use explicitly provided QR code if any
+          
+          // If no QR code provided, check existing room's QR code
+          if (!roomQrCode) {
+            roomQrCode = existingRoom?.qrCode || null;
+          }
+          
+          // If still no QR code, or if room name changed (and QR code wasn't explicitly set), generate new one
+          const roomNameChanged = existingRoom && existingRoom.name && room.name && existingRoom.name !== room.name;
+          if ((!roomQrCode || (roomNameChanged && !room.qrCode)) && room.name) {
+            roomQrCode = generateRoomQrCode(existingPin.id, floor.level, room.name);
+            console.log(`✅ Auto-generated QR code for room "${room.name}" on floor ${floor.level}: ${roomQrCode}`);
+          }
+          
           // Preserve all room properties
           const updatedRoom = {
             name: room.name,
             image: room.image || null,
             description: room.description || null,
-            qrCode: room.qrCode || null,
-            order: room.order !== undefined ? room.order : 0,
+            qrCode: roomQrCode,
+            order: room.order !== undefined ? room.order : (existingRoom?.order !== undefined ? existingRoom.order : 0),
             besideRooms: Array.isArray(room.besideRooms) ? [...room.besideRooms] : []
           };
           return updatedRoom;
