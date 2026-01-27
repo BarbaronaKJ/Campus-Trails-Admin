@@ -181,13 +181,27 @@ router.put('/:id/neighbors', authenticateToken, async (req, res) => {
     });
 
     // Get the pin's ID (for pathfinding, use pin.id, not _id)
-    const currentPinId = pin.id || pin._id;
+    const currentPinId = pin.id !== undefined && pin.id !== null ? pin.id : pin._id;
     const oldNeighbors = [...(pin.neighbors || [])];
+
+    // Validate currentPinId exists
+    if (!currentPinId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Pin ID is missing. Cannot update neighbors without a valid pin ID.' 
+      });
+    }
 
     // Update the pin's neighbors
     pin.neighbors = normalizedNeighbors;
     pin.updatedAt = Date.now();
-    await pin.save();
+    
+    try {
+      await pin.save();
+    } catch (saveError) {
+      console.error('Error saving pin with updated neighbors:', saveError);
+      throw saveError; // Re-throw to be caught by outer catch
+    }
 
     // Update bidirectional connections for each neighbor
     for (const neighborId of normalizedNeighbors) {
@@ -223,15 +237,18 @@ router.put('/:id/neighbors', authenticateToken, async (req, res) => {
 
           if (isNowConnected && !currentPinInNeighbor) {
             // Add reverse connection (new connection)
-            neighborPin.neighbors = [...neighborNeighbors, currentPinId || pin._id];
-            neighborPin.updatedAt = Date.now();
-            await neighborPin.save();
-            console.log(`Added reverse connection: ${neighborPin.title || neighborPin._id} now connects to ${pin.title || pin._id}`);
+            const reverseConnectionId = currentPinId !== undefined && currentPinId !== null ? currentPinId : pin._id;
+            if (reverseConnectionId) {
+              neighborPin.neighbors = [...neighborNeighbors, reverseConnectionId];
+              neighborPin.updatedAt = Date.now();
+              await neighborPin.save();
+              console.log(`Added reverse connection: ${neighborPin.title || neighborPin._id} now connects to ${pin.title || pin._id}`);
+            }
           } else if (!isNowConnected && wasConnected && currentPinInNeighbor) {
             // Remove reverse connection (connection was removed)
             neighborPin.neighbors = neighborNeighbors.filter(n => {
               // Compare using id field (for pathfinding)
-              if (neighborPin.id !== undefined && currentPinId !== undefined) {
+              if (neighborPin.id !== undefined && currentPinId !== undefined && currentPinId !== null) {
                 return String(n) !== String(currentPinId) && n !== currentPinId;
               }
               // Fallback to _id comparison
