@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import { campusesAPI } from '../services/api';
 import './FloorPlans.css';
@@ -19,6 +19,7 @@ function FloorPlans() {
   const [addingRoom, setAddingRoom] = useState(null); // { pinId, floorIndex }
   const [editingRoom, setEditingRoom] = useState(null); // { pinId, floorIndex, roomIndex }
   const [editingRoomData, setEditingRoomData] = useState(null); // Local state for room being edited
+  const saveTimeoutRef = useRef(null); // For debouncing saves
 
   const fetchData = useCallback(async () => {
     try {
@@ -99,7 +100,7 @@ function FloorPlans() {
     updatePinFloors(pinId, updatedFloors);
   };
 
-  const handleUpdateFloor = (pinId, floorIndex, updatedFloor) => {
+  const handleUpdateFloor = (pinId, floorIndex, updatedFloor, saveImmediately = false) => {
     // Update local editing state immediately for UI responsiveness
     setEditingFloorData({ ...editingFloorData, ...updatedFloor });
     
@@ -114,8 +115,19 @@ function FloorPlans() {
     // Update local state immediately
     setPins(pins.map(p => (p._id || p.id) === pinId ? { ...p, floors: sorted } : p));
     
-    // Save to backend (this will also refresh data after save)
-    updatePinFloors(pinId, sorted);
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Save to backend - debounce for 1 second unless saveImmediately is true
+    if (saveImmediately) {
+      updatePinFloors(pinId, sorted);
+    } else {
+      saveTimeoutRef.current = setTimeout(() => {
+        updatePinFloors(pinId, sorted);
+      }, 1000);
+    }
   };
 
   const handleSaveFloor = (pinId, floorIndex) => {
@@ -193,7 +205,7 @@ function FloorPlans() {
     updatePinFloors(pinId, updatedFloors);
   };
 
-  const handleUpdateRoom = (pinId, floorIndex, roomIndex, updatedRoom) => {
+  const handleUpdateRoom = (pinId, floorIndex, roomIndex, updatedRoom, saveImmediately = false) => {
     // Update local editing state immediately for UI responsiveness
     const currentEditingData = editingRoomData || {};
     setEditingRoomData({ ...currentEditingData, ...updatedRoom });
@@ -227,8 +239,19 @@ function FloorPlans() {
     // Update local state immediately
     setPins(pins.map(p => (p._id || p.id) === pinId ? { ...p, floors: updatedFloors } : p));
     
-    // Save to backend (this will also refresh data after save)
-    updatePinFloors(pinId, updatedFloors);
+    // Clear existing timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    // Save to backend - debounce for 1 second unless saveImmediately is true
+    if (saveImmediately) {
+      updatePinFloors(pinId, updatedFloors);
+    } else {
+      saveTimeoutRef.current = setTimeout(() => {
+        updatePinFloors(pinId, updatedFloors);
+      }, 1000);
+    }
   };
 
   const handleSaveRoom = (pinId, floorIndex, roomIndex) => {
@@ -635,8 +658,18 @@ function FloorPlans() {
                                     <div style={{ marginTop: '15px' }}>
                                       <button
                                         onClick={() => {
-                                          handleSaveFloor(pinId, floorIndex);
+                                          // Force immediate save before closing
+                                          if (editingFloorData) {
+                                            const pin = pins.find(p => (p._id || p.id) === pinId);
+                                            if (pin) {
+                                              const updatedFloors = [...(pin.floors || [])];
+                                              updatedFloors[floorIndex] = { ...updatedFloors[floorIndex], ...editingFloorData };
+                                              const sorted = updatedFloors.sort((a, b) => a.level - b.level);
+                                              updatePinFloors(pinId, sorted);
+                                            }
+                                          }
                                           setEditingFloor(null);
+                                          setEditingFloorData(null);
                                         }}
                                         className="btn btn-primary"
                                       >
@@ -908,8 +941,36 @@ function FloorPlans() {
                                                         onClick={(e) => {
                                                           e.preventDefault();
                                                           e.stopPropagation();
-                                                          handleSaveRoom(pinId, floorIndex, originalIndex);
+                                                          // Force immediate save before closing
+                                                          if (editingRoomData) {
+                                                            const pin = pins.find(p => (p._id || p.id) === pinId);
+                                                            if (pin && pin.floors && pin.floors[floorIndex]) {
+                                                              const updatedFloors = [...pin.floors];
+                                                              const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
+                                                              const existingRoom = updatedRooms[originalIndex] || {};
+                                                              
+                                                              const finalRoomData = {
+                                                                ...existingRoom,
+                                                                ...editingRoomData,
+                                                                name: editingRoomData.name !== undefined ? editingRoomData.name : existingRoom.name,
+                                                                description: editingRoomData.description !== undefined ? editingRoomData.description : (existingRoom.description || ''),
+                                                                order: editingRoomData.order !== undefined ? editingRoomData.order : (existingRoom.order !== undefined ? existingRoom.order : originalIndex),
+                                                                qrCode: editingRoomData.qrCode !== undefined ? editingRoomData.qrCode : (existingRoom.qrCode || null),
+                                                                besideRooms: editingRoomData.besideRooms !== undefined ? editingRoomData.besideRooms : (existingRoom.besideRooms || []),
+                                                                image: editingRoomData.image !== undefined ? editingRoomData.image : (existingRoom.image || null)
+                                                              };
+                                                              
+                                                              updatedRooms[originalIndex] = finalRoomData;
+                                                              updatedFloors[floorIndex] = {
+                                                                ...updatedFloors[floorIndex],
+                                                                rooms: updatedRooms
+                                                              };
+                                                              
+                                                              updatePinFloors(pinId, updatedFloors);
+                                                            }
+                                                          }
                                                           setEditingRoom(null);
+                                                          setEditingRoomData(null);
                                                         }}
                                                         className="btn btn-primary"
                                                       >
