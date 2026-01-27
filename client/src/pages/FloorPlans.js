@@ -905,7 +905,7 @@ function FloorPlans() {
                                                                       const updatedBesideRooms = e.target.checked
                                                                         ? [...currentBesideRooms, otherRoom.name || otherRoom._id]
                                                                         : currentBesideRooms.filter(id => id !== (otherRoom.name || otherRoom._id));
-                                                                      handleUpdateRoom(pinId, floorIndex, originalIndex, { besideRooms: updatedBesideRooms });
+                                                                      handleUpdateRoom(pinId, floorIndex, originalIndex, { besideRooms: updatedBesideRooms }, true);
                                                                     }}
                                                                     style={{ 
                                                                       marginRight: '10px',
