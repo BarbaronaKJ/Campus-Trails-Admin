@@ -166,7 +166,10 @@ function FloorPlans() {
       rooms: [...adjustedRooms, {
         name: roomData.name.trim(),
         description: roomData.description || '',
-        order: desiredOrder
+        order: desiredOrder,
+        qrCode: roomData.qrCode || null,
+        besideRooms: roomData.besideRooms || [],
+        image: roomData.image || null
       }]
     };
 
@@ -192,18 +195,21 @@ function FloorPlans() {
     // Get existing room data to preserve fields not being edited
     const existingRoom = updatedRooms[roomIndex] || {};
     const oldOrder = existingRoom.order;
-    // Remove image field if it exists, keep only name, description, and order
-    const { image, ...roomUpdate } = editingRoomData;
-    // Merge: existing room data + edited data (order, name, description)
-    // Explicitly preserve order even if it's 0 or undefined - use 'in' operator to check if key exists
+    // Preserve all room properties
+    const roomUpdate = editingRoomData;
+    // Merge: existing room data + edited data, preserving all properties
     const finalRoomData = {
       ...existingRoom,
       ...roomUpdate,
       // Explicitly set order - use roomUpdate.order if key exists in roomUpdate, otherwise keep existing
-      order: 'order' in roomUpdate ? roomUpdate.order : (existingRoom.order !== undefined ? existingRoom.order : undefined)
+      order: 'order' in roomUpdate ? roomUpdate.order : (existingRoom.order !== undefined ? existingRoom.order : roomIndex),
+      // Preserve other properties
+      name: roomUpdate.name !== undefined ? roomUpdate.name : existingRoom.name,
+      description: roomUpdate.description !== undefined ? roomUpdate.description : (existingRoom.description || ''),
+      qrCode: roomUpdate.qrCode !== undefined ? roomUpdate.qrCode : (existingRoom.qrCode || null),
+      besideRooms: roomUpdate.besideRooms !== undefined ? roomUpdate.besideRooms : (existingRoom.besideRooms || []),
+      image: roomUpdate.image !== undefined ? roomUpdate.image : (existingRoom.image || null)
     };
-    // Ensure image is removed from the room
-    delete finalRoomData.image;
     
     // If order changed and conflicts with another room, adjust other rooms' orders
     const newOrder = finalRoomData.order;

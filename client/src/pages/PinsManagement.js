@@ -1461,7 +1461,15 @@ function PinsManagement() {
                           onClick={() => {
                             const newFloors = [...(editPinData.floors || [])]
                             if (!newFloors[floorIndex].rooms) newFloors[floorIndex].rooms = []
-                            newFloors[floorIndex].rooms.push({ name: '', description: '' })
+                            const existingRooms = newFloors[floorIndex].rooms || []
+                            newFloors[floorIndex].rooms.push({ 
+                              name: '', 
+                              description: '',
+                              order: existingRooms.length,
+                              qrCode: null,
+                              besideRooms: [],
+                              image: null
+                            })
                             setEditPinData({...editPinData, floors: newFloors})
                           }}
                         >
