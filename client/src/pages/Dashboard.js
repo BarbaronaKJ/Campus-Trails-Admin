@@ -138,7 +138,6 @@ function Dashboard() {
       });
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
-      setError('Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
