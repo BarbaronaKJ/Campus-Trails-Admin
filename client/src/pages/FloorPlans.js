@@ -100,20 +100,36 @@ function FloorPlans() {
   };
 
   const handleUpdateFloor = (pinId, floorIndex, updatedFloor) => {
-    // Update local state only - don't save to backend yet
+    // Update local editing state immediately for UI responsiveness
     setEditingFloorData({ ...editingFloorData, ...updatedFloor });
-  };
-
-  const handleSaveFloor = (pinId, floorIndex) => {
-    if (!editingFloorData) return;
+    
+    // Also update the pin in local state for immediate UI feedback
     const pin = pins.find(p => (p._id || p.id) === pinId);
     if (!pin) return;
 
     const updatedFloors = [...(pin.floors || [])];
-    updatedFloors[floorIndex] = { ...updatedFloors[floorIndex], ...editingFloorData };
+    updatedFloors[floorIndex] = { ...updatedFloors[floorIndex], ...updatedFloor };
     const sorted = updatedFloors.sort((a, b) => a.level - b.level);
-    setEditingFloorData(null);
+    
+    // Update local state immediately
+    setPins(pins.map(p => (p._id || p.id) === pinId ? { ...p, floors: sorted } : p));
+    
+    // Save to backend (this will also refresh data after save)
     updatePinFloors(pinId, sorted);
+  };
+
+  const handleSaveFloor = (pinId, floorIndex) => {
+    // Since handleUpdateFloor now saves immediately, this function just ensures final save and closes edit mode
+    if (editingFloorData) {
+      const pin = pins.find(p => (p._id || p.id) === pinId);
+      if (pin) {
+        const updatedFloors = [...(pin.floors || [])];
+        updatedFloors[floorIndex] = { ...updatedFloors[floorIndex], ...editingFloorData };
+        const sorted = updatedFloors.sort((a, b) => a.level - b.level);
+        updatePinFloors(pinId, sorted);
+      }
+    }
+    setEditingFloorData(null);
   };
 
   const handleDeleteFloor = (pinId, floorIndex) => {
@@ -178,89 +194,74 @@ function FloorPlans() {
   };
 
   const handleUpdateRoom = (pinId, floorIndex, roomIndex, updatedRoom) => {
-    // Update local state only - don't save to backend yet
-    const { image, ...roomUpdate } = updatedRoom;
-    // Ensure editingRoomData is initialized (should already be set when Edit is clicked)
+    // Update local editing state immediately for UI responsiveness
     const currentEditingData = editingRoomData || {};
-    setEditingRoomData({ ...currentEditingData, ...roomUpdate });
-  };
-
-  const handleSaveRoom = (pinId, floorIndex, roomIndex) => {
-    if (!editingRoomData) return;
+    setEditingRoomData({ ...currentEditingData, ...updatedRoom });
+    
+    // Also update the pin in local state for immediate UI feedback
     const pin = pins.find(p => (p._id || p.id) === pinId);
     if (!pin || !pin.floors || !pin.floors[floorIndex]) return;
 
     const updatedFloors = [...pin.floors];
     const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
-    // Get existing room data to preserve fields not being edited
     const existingRoom = updatedRooms[roomIndex] || {};
-    const oldOrder = existingRoom.order;
-    // Preserve all room properties
-    const roomUpdate = editingRoomData;
-    // Merge: existing room data + edited data, preserving all properties
+    
+    // Merge changes with existing room data
     const finalRoomData = {
       ...existingRoom,
-      ...roomUpdate,
-      // Explicitly set order - use roomUpdate.order if key exists in roomUpdate, otherwise keep existing
-      order: 'order' in roomUpdate ? roomUpdate.order : (existingRoom.order !== undefined ? existingRoom.order : roomIndex),
-      // Preserve other properties
-      name: roomUpdate.name !== undefined ? roomUpdate.name : existingRoom.name,
-      description: roomUpdate.description !== undefined ? roomUpdate.description : (existingRoom.description || ''),
-      qrCode: roomUpdate.qrCode !== undefined ? roomUpdate.qrCode : (existingRoom.qrCode || null),
-      besideRooms: roomUpdate.besideRooms !== undefined ? roomUpdate.besideRooms : (existingRoom.besideRooms || []),
-      image: roomUpdate.image !== undefined ? roomUpdate.image : (existingRoom.image || null)
+      ...updatedRoom,
+      name: updatedRoom.name !== undefined ? updatedRoom.name : existingRoom.name,
+      description: updatedRoom.description !== undefined ? updatedRoom.description : (existingRoom.description || ''),
+      order: updatedRoom.order !== undefined ? updatedRoom.order : (existingRoom.order !== undefined ? existingRoom.order : roomIndex),
+      qrCode: updatedRoom.qrCode !== undefined ? updatedRoom.qrCode : (existingRoom.qrCode || null),
+      besideRooms: updatedRoom.besideRooms !== undefined ? updatedRoom.besideRooms : (existingRoom.besideRooms || []),
+      image: updatedRoom.image !== undefined ? updatedRoom.image : (existingRoom.image || null)
     };
     
-    // If order changed and conflicts with another room, adjust other rooms' orders
-    const newOrder = finalRoomData.order;
-    if (newOrder !== undefined && newOrder !== null && newOrder !== oldOrder) {
-      // Temporarily remove current room from array for conflict checking
-      const roomsWithoutCurrent = updatedRooms.filter((_, idx) => idx !== roomIndex);
-      
-      // Check if newOrder conflicts with any other room
-      const hasConflict = roomsWithoutCurrent.some(r => r.order !== undefined && r.order !== null && r.order === newOrder);
-      
-      // Determine if we need to rearrange: conflict exists OR moving to a lower position
-      const movingToLowerPosition = (oldOrder !== undefined && oldOrder !== null && oldOrder > newOrder);
-      
-      if (hasConflict || movingToLowerPosition) {
-        // There's a conflict or moving to lower position - need to rearrange
-        // Strategy: Shift all rooms with order >= newOrder (except current room) by +1
-        const adjustedRooms = updatedRooms.map((room, idx) => {
-          if (idx === roomIndex) {
-            // This is the room being updated - set its order to newOrder
-            return finalRoomData;
-          }
-          // For other rooms: if they have order >= newOrder, increment by 1
-          if (room.order !== undefined && room.order !== null && room.order >= newOrder) {
-            return { ...room, order: room.order + 1 };
-          }
-          return room;
-        });
+    updatedRooms[roomIndex] = finalRoomData;
+    updatedFloors[floorIndex] = {
+      ...updatedFloors[floorIndex],
+      rooms: updatedRooms
+    };
+
+    // Update local state immediately
+    setPins(pins.map(p => (p._id || p.id) === pinId ? { ...p, floors: updatedFloors } : p));
+    
+    // Save to backend (this will also refresh data after save)
+    updatePinFloors(pinId, updatedFloors);
+  };
+
+  const handleSaveRoom = (pinId, floorIndex, roomIndex) => {
+    // Since handleUpdateRoom now saves immediately, this function just ensures final save and closes edit mode
+    if (editingRoomData) {
+      // Final save with any remaining changes
+      const pin = pins.find(p => (p._id || p.id) === pinId);
+      if (pin && pin.floors && pin.floors[floorIndex]) {
+        const updatedFloors = [...pin.floors];
+        const updatedRooms = [...(updatedFloors[floorIndex].rooms || [])];
+        const existingRoom = updatedRooms[roomIndex] || {};
         
-        updatedFloors[floorIndex] = {
-          ...updatedFloors[floorIndex],
-          rooms: adjustedRooms
+        const finalRoomData = {
+          ...existingRoom,
+          ...editingRoomData,
+          name: editingRoomData.name !== undefined ? editingRoomData.name : existingRoom.name,
+          description: editingRoomData.description !== undefined ? editingRoomData.description : (existingRoom.description || ''),
+          order: editingRoomData.order !== undefined ? editingRoomData.order : (existingRoom.order !== undefined ? existingRoom.order : roomIndex),
+          qrCode: editingRoomData.qrCode !== undefined ? editingRoomData.qrCode : (existingRoom.qrCode || null),
+          besideRooms: editingRoomData.besideRooms !== undefined ? editingRoomData.besideRooms : (existingRoom.besideRooms || []),
+          image: editingRoomData.image !== undefined ? editingRoomData.image : (existingRoom.image || null)
         };
-      } else {
-        // No conflict and not moving to lower position, just update the room
+        
         updatedRooms[roomIndex] = finalRoomData;
         updatedFloors[floorIndex] = {
           ...updatedFloors[floorIndex],
           rooms: updatedRooms
         };
+        
+        updatePinFloors(pinId, updatedFloors);
       }
-    } else {
-      // Order didn't change or is undefined/null, just update normally
-      updatedRooms[roomIndex] = finalRoomData;
-      updatedFloors[floorIndex] = {
-        ...updatedFloors[floorIndex],
-        rooms: updatedRooms
-      };
     }
-
     setEditingRoomData(null);
-    updatePinFloors(pinId, updatedFloors);
   };
 
   const handleDeleteRoom = (pinId, floorIndex, roomIndex) => {
@@ -975,6 +976,7 @@ function FloorPlans() {
                                                       <button
                                                         onClick={() => {
                                                           setEditingRoom({ pinId, floorIndex, roomIndex: originalIndex });
+                                                          setEditingRoomData({ ...room }); // Initialize with current room data
                                                           setEditingRoomData({ ...room }); // Initialize with current room data
                                                         }}
                                                         className="btn btn-primary"
