@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI } from '../services/api';
+import { usersAPI, campusesAPI, suggestionsAndFeedbacksAPI, analyticsAPI } from '../services/api';
 import { getApiBaseUrl } from '../utils/apiConfig';
 import './Dashboard.css';
 
@@ -14,9 +14,9 @@ function Dashboard() {
     feedbacks: 0,
     suggestionsAndFeedbacks: 0
   });
-  const [feedbackTrends] = useState([]);
-  const [searchesAndPathfindingTrends] = useState([]);
-  const [localTracking] = useState({
+  const [feedbackTrends, setFeedbackTrends] = useState([]);
+  const [searchesAndPathfindingTrends, setSearchesAndPathfindingTrends] = useState([]);
+  const [localTracking, setLocalTracking] = useState({
     totalSearches: 0,
     totalPathfinding: 0,
     totalSavedPins: 0,
@@ -87,6 +87,34 @@ function Dashboard() {
     setPinViewMode('visible');
   };
 
+  // Helper function to process analytics data into trend format
+  const processTrendData = (data, dateKey = 'timestamp') => {
+    if (!data || !Array.isArray(data) || data.length === 0) return [];
+    
+    // Group by date
+    const groupedByDate = {};
+    data.forEach(item => {
+      const date = new Date(item[dateKey]);
+      const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      if (!groupedByDate[dateStr]) {
+        groupedByDate[dateStr] = 0;
+      }
+      groupedByDate[dateStr]++;
+    });
+    
+    // Convert to array format for charts
+    return Object.keys(groupedByDate)
+      .sort((a, b) => {
+        const dateA = new Date(a);
+        const dateB = new Date(b);
+        return dateA - dateB;
+      })
+      .map(date => ({
+        date,
+        count: groupedByDate[date]
+      }));
+  };
+
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
@@ -101,18 +129,23 @@ function Dashboard() {
       // Build query params
       const campusQuery = selectedCampus !== 'all' ? `&campusId=${selectedCampus}` : '';
 
-      // Fetch all data
-      const [pinsRes, usersRes, suggestionsRes] = await Promise.all([
+      // Fetch all data including analytics
+      const [pinsRes, usersRes, suggestionsRes, analyticsRes] = await Promise.all([
         fetch(`${baseUrl}/api/admin/pins?limit=1000&includeInvisible=true${campusQuery}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }).then(r => r.json()),
         usersAPI.getAll({ limit: 10000 }),
-        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 })
+        suggestionsAndFeedbacksAPI.getAll({ limit: 1000 }),
+        analyticsAPI.getStats({ days: 7, ...(selectedCampus !== 'all' ? { campusId: selectedCampus } : {}) }).catch(err => {
+          console.warn('Analytics API not available:', err);
+          return { data: { success: false } };
+        })
       ]);
 
       const pins = pinsRes.pins || pinsRes.data || [];
       const users = usersRes.data?.users || usersRes.data || [];
       const suggestions = suggestionsRes.data?.suggestions || suggestionsRes.data || [];
+      const analyticsData = analyticsRes.data?.success ? analyticsRes.data.data : null;
 
       // Extract all feedbackHistory from users for facility reports
       const allFeedbackHistory = [];
@@ -127,6 +160,114 @@ function Dashboard() {
           });
         }
       });
+
+      // Process feedback trends (last 7 days)
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      const recentFeedbacks = allFeedbackHistory.filter(f => {
+        const feedbackDate = new Date(f.date || f.createdAt);
+        return feedbackDate >= sevenDaysAgo;
+      });
+      const feedbackTrendsData = processTrendData(recentFeedbacks, 'date');
+      setFeedbackTrends(feedbackTrendsData);
+
+      // Process searches and pathfinding trends from analytics
+      if (analyticsData) {
+        const searchesTrends = processTrendData(analyticsData.recentSearches || []);
+        const pathfindingTrends = processTrendData(analyticsData.recentRoutes || []);
+        
+        // Combine searches and pathfinding into one chart
+        const combinedTrends = [];
+        const allDates = new Set([
+          ...searchesTrends.map(t => t.date),
+          ...pathfindingTrends.map(t => t.date)
+        ]);
+        
+        allDates.forEach(date => {
+          const searchesCount = searchesTrends.find(t => t.date === date)?.count || 0;
+          const pathfindingCount = pathfindingTrends.find(t => t.date === date)?.count || 0;
+          combinedTrends.push({
+            date,
+            Searches: searchesCount,
+            Pathfinding: pathfindingCount
+          });
+        });
+        
+        combinedTrends.sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          return dateA - dateB;
+        });
+        
+        setSearchesAndPathfindingTrends(combinedTrends);
+
+        // Calculate local tracking stats
+        const totalSearches = analyticsData.totalSearches || 0;
+        const totalPathfinding = analyticsData.totalPathfindingRoutes || 0;
+        const recentSearchesCount = analyticsData.recentSearchesCount || 0;
+        const recentRoutesCount = analyticsData.recentRoutesCount || 0;
+        
+        // Calculate saved pins from users
+        let totalSavedPins = 0;
+        users.forEach(user => {
+          const count = user.activity?.savedPins?.length || 0;
+          totalSavedPins += count;
+        });
+        
+        // Calculate active users (7 days)
+        const sevenDaysAgoActive = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const activeUsers7Days = users.filter(u => {
+          if (!u.activity?.lastActiveDate) return false;
+          const lastActive = new Date(u.activity.lastActiveDate);
+          return lastActive >= sevenDaysAgoActive;
+        }).length;
+        
+        // Calculate averages
+        const usersWithSearches = users.filter(u => u.activity?.searchHistory?.length > 0).length;
+        const usersWithPathfinding = users.filter(u => u.activity?.pathfindingHistory?.length > 0).length;
+        const usersWithSavedPins = users.filter(u => u.activity?.savedPins?.length > 0).length;
+        
+        setLocalTracking({
+          totalSearches: totalSearches,
+          totalPathfinding: totalPathfinding,
+          totalSavedPins: totalSavedPins,
+          activeUsers7Days: activeUsers7Days,
+          avgSearchesPerUser: usersWithSearches > 0 ? (totalSearches / usersWithSearches).toFixed(1) : 0,
+          avgPathfindingPerUser: usersWithPathfinding > 0 ? (totalPathfinding / usersWithPathfinding).toFixed(1) : 0,
+          avgSavedPinsPerUser: usersWithSavedPins > 0 ? (totalSavedPins / usersWithSavedPins).toFixed(1) : 0
+        });
+      } else {
+        // Fallback: calculate from user activity if analytics not available
+        let totalSearches = 0;
+        let totalPathfinding = 0;
+        let totalSavedPins = 0;
+        
+        users.forEach(user => {
+          totalSearches += user.activity?.searchHistory?.length || 0;
+          totalPathfinding += user.activity?.pathfindingHistory?.length || 0;
+          totalSavedPins += user.activity?.savedPins?.length || 0;
+        });
+        
+        const sevenDaysAgoActive = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const activeUsers7Days = users.filter(u => {
+          if (!u.activity?.lastActiveDate) return false;
+          const lastActive = new Date(u.activity.lastActiveDate);
+          return lastActive >= sevenDaysAgoActive;
+        }).length;
+        
+        const usersWithSearches = users.filter(u => u.activity?.searchHistory?.length > 0).length;
+        const usersWithPathfinding = users.filter(u => u.activity?.pathfindingHistory?.length > 0).length;
+        const usersWithSavedPins = users.filter(u => u.activity?.savedPins?.length > 0).length;
+        
+        setLocalTracking({
+          totalSearches: totalSearches,
+          totalPathfinding: totalPathfinding,
+          totalSavedPins: totalSavedPins,
+          activeUsers7Days: activeUsers7Days,
+          avgSearchesPerUser: usersWithSearches > 0 ? (totalSearches / usersWithSearches).toFixed(1) : 0,
+          avgPathfindingPerUser: usersWithPathfinding > 0 ? (totalPathfinding / usersWithPathfinding).toFixed(1) : 0,
+          avgSavedPinsPerUser: usersWithSavedPins > 0 ? (totalSavedPins / usersWithSavedPins).toFixed(1) : 0
+        });
+      }
 
       // Calculate stats
       setStats({
